@@ -1,0 +1,2602 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>降维（Dimensionality Reduction）｜系统讲义</title>
+
+  <!-- MathJax：渲染 LaTeX 数学公式 -->
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['\\(','\\)'], ['$', '$']],
+        displayMath: [['\\[','\\]'], ['$$','$$']],
+        processEscapes: true
+      },
+      chtml: { scale: 1.0, matchFontHeight: true },
+      options: { skipHtmlTags: ['script','noscript','style','textarea','pre','code'] }
+    };
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+
+  <style>
+    :root{
+      /* Light theme (主/副/强调：蓝/绿/橙) */
+      --bg: #f6f8fc;
+      --panel: #ffffff;
+      --panel2:#f3f7ff;
+      --text: #0b1220;
+      --muted:#475569;
+      --muted2:#64748b;
+      --border:#e6eaf2;
+
+      --primary:#2563eb;     /* 蓝 */
+      --secondary:#10b981;   /* 绿 */
+      --accent:#f59e0b;      /* 橙 */
+
+      --shadow: 0 10px 26px rgba(2, 6, 23, 0.08);
+      --shadow2: 0 6px 16px rgba(2, 6, 23, 0.08);
+      --radius: 14px;
+      --radius2: 18px;
+
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial;
+
+      --tocW: 330px;
+      --topOffset: 18px;
+    }
+
+    /* Optional dark theme (不影响默认配色的一目了然) */
+    [data-theme="dark"]{
+      --bg:#070b14;
+      --panel:#0b1220;
+      --panel2:#0e1730;
+      --text:#e8eefc;
+      --muted:#b6c2dc;
+      --muted2:#97a6c6;
+      --border:#1c2a4a;
+
+      --shadow: 0 14px 30px rgba(0,0,0,0.40);
+      --shadow2: 0 8px 18px rgba(0,0,0,0.38);
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{ height:100%; }
+    body{
+      margin:0;
+      font-family: var(--sans);
+      color: var(--text);
+      background:
+        radial-gradient(900px 520px at 12% 10%, rgba(37,99,235,0.12), transparent 60%),
+        radial-gradient(780px 460px at 88% 12%, rgba(16,185,129,0.10), transparent 58%),
+        radial-gradient(820px 520px at 70% 86%, rgba(245,158,11,0.10), transparent 60%),
+        linear-gradient(180deg, #ffffff, var(--bg) 40%, #ffffff);
+      line-height: 1.78;
+      letter-spacing: 0.1px;
+    }
+    [data-theme="dark"] body{
+      background:
+        radial-gradient(900px 520px at 12% 10%, rgba(37,99,235,0.18), transparent 60%),
+        radial-gradient(780px 460px at 88% 12%, rgba(16,185,129,0.14), transparent 58%),
+        radial-gradient(820px 520px at 70% 86%, rgba(245,158,11,0.14), transparent 60%),
+        linear-gradient(180deg, #070b14, var(--bg) 45%, #070b14);
+    }
+
+    /* Top progress bar */
+    .progress{
+      position: fixed;
+      left: 0; top: 0;
+      height: 3px;
+      width: 0%;
+      z-index: 9999;
+      background: linear-gradient(90deg, var(--primary), var(--secondary), var(--accent));
+      box-shadow: 0 6px 16px rgba(2,6,23,0.16);
+    }
+
+    /* Layout */
+    .app{
+      display:flex;
+      min-height:100vh;
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: var(--topOffset);
+      gap: 18px;
+    }
+    aside{
+      width: var(--tocW);
+      flex: 0 0 var(--tocW);
+      position: sticky;
+      top: var(--topOffset);
+      align-self: flex-start;
+      max-height: calc(100vh - 2*var(--topOffset));
+      overflow:auto;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      border-radius: var(--radius2);
+      box-shadow: var(--shadow);
+      padding: 14px 14px 12px;
+    }
+    main{ flex:1 1 auto; min-width:0; }
+
+    /* Mobile TOC */
+    .mobile-top{
+      display:none;
+      margin-bottom: 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius2);
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .mobile-top summary{
+      cursor:pointer;
+      list-style:none;
+      padding: 14px 16px;
+      font-weight: 900;
+      color: var(--text);
+      border-bottom: 1px solid var(--border);
+      display:flex;
+      justify-content: space-between;
+      align-items:center;
+      gap: 12px;
+    }
+    .mobile-top summary::-webkit-details-marker{ display:none; }
+
+    /* Sidebar header */
+    .brand{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      padding: 10px 10px 12px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 12px;
+    }
+    .logo{
+      width: 42px; height: 42px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      box-shadow: 0 12px 18px rgba(37,99,235,0.22);
+      position: relative;
+      overflow:hidden;
+    }
+    .logo:after{
+      content:"";
+      position:absolute;
+      inset:-20%;
+      background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.85), rgba(255,255,255,0) 55%);
+      transform: rotate(18deg);
+      opacity:0.65;
+    }
+    .brand h1{ font-size: 14px; margin:0; letter-spacing: 0.2px; }
+    .brand p{ margin:0; font-size: 12px; color: var(--muted2); }
+
+    /* Sidebar controls */
+    .side-actions{
+      display:flex;
+      gap: 10px;
+      padding: 10px;
+      margin: 10px 0 12px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: linear-gradient(180deg, rgba(37,99,235,0.06), rgba(16,185,129,0.04));
+    }
+    .search{
+      width: 100%;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.80);
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 999px;
+      outline: none;
+      font-size: 12.5px;
+    }
+    [data-theme="dark"] .search{ background: rgba(11,18,32,0.70); }
+    .chipbtn{
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.78);
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 999px;
+      cursor:pointer;
+      font-size: 12px;
+      font-weight: 900;
+      transition: 0.15s ease;
+      white-space: nowrap;
+    }
+    [data-theme="dark"] .chipbtn{ background: rgba(11,18,32,0.70); }
+    .chipbtn:hover{ box-shadow: var(--shadow2); }
+    .chipbtn.primary{ border-color: rgba(37,99,235,0.28); color: var(--primary); }
+    .chipbtn.secondary{ border-color: rgba(16,185,129,0.28); color: var(--secondary); }
+    .chipbtn.accent{ border-color: rgba(245,158,11,0.34); color: #9a5a00; }
+
+    /* TOC */
+    .toc{ padding: 0 6px 10px; }
+    .toc .hint{
+      font-size: 12px;
+      color: var(--muted2);
+      margin: 10px 0 8px;
+    }
+    .toc .group{
+      margin: 12px 0 10px;
+      padding: 10px 10px 8px;
+      border-radius: 14px;
+      background: rgba(2,6,23,0.02);
+      border: 1px solid var(--border);
+    }
+    [data-theme="dark"] .toc .group{ background: rgba(255,255,255,0.04); }
+    .toc .group-title{
+      font-size: 12px;
+      color: var(--muted2);
+      letter-spacing: 0.2px;
+      margin: 0 0 6px;
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+    .dot{
+      width: 8px; height: 8px; border-radius: 99px;
+      background: var(--primary);
+      box-shadow: 0 0 0 4px rgba(37,99,235,0.12);
+    }
+    .dot.secondary{ background: var(--secondary); box-shadow: 0 0 0 4px rgba(16,185,129,0.12); }
+    .dot.accent{ background: var(--accent); box-shadow: 0 0 0 4px rgba(245,158,11,0.14); }
+
+    .toc a{
+      display:block;
+      padding: 9px 10px;
+      border-radius: 12px;
+      text-decoration:none;
+      color: var(--muted);
+      border: 1px solid transparent;
+      transition: 0.15s ease;
+      font-size: 13px;
+    }
+    .toc a:hover{
+      background: rgba(37,99,235,0.06);
+      color: var(--text);
+      border-color: rgba(37,99,235,0.16);
+    }
+    .toc a.active{
+      background: linear-gradient(135deg, rgba(37,99,235,0.14), rgba(16,185,129,0.10));
+      border-color: rgba(37,99,235,0.30);
+      color: var(--text);
+      box-shadow: var(--shadow2);
+    }
+
+    /* Content cards */
+    header.hero, section{
+      border: 1px solid var(--border);
+      background: var(--panel);
+      border-radius: var(--radius2);
+      box-shadow: var(--shadow);
+      padding: 22px 22px 18px;
+      margin-bottom: 18px;
+      overflow:hidden;
+      position: relative;
+    }
+    header.hero{
+      background: linear-gradient(180deg, var(--panel), var(--panel2));
+    }
+    header.hero:before{
+      content:"";
+      position:absolute;
+      inset:-140px -140px auto auto;
+      width: 480px; height: 480px;
+      background: radial-gradient(circle at 30% 30%, rgba(245,158,11,0.18), rgba(245,158,11,0) 60%);
+      transform: rotate(12deg);
+      pointer-events:none;
+    }
+    header.hero h2{ margin:0 0 6px; font-size: clamp(22px, 2.2vw, 30px); letter-spacing: 0.2px; }
+    header.hero .sub{ margin: 0 0 14px; color: var(--muted); font-size: 14px; max-width: 1100px; }
+
+    .hero-topbar{
+      display:flex;
+      justify-content: space-between;
+      align-items:flex-start;
+      gap: 12px;
+    }
+    .hero-actions{
+      display:flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items:center;
+      justify-content:flex-end;
+      margin-top: 2px;
+    }
+    .iconbtn{
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.75);
+      color: var(--text);
+      padding: 8px 10px;
+      border-radius: 999px;
+      cursor:pointer;
+      font-size: 12px;
+      font-weight: 900;
+      transition: 0.15s ease;
+    }
+    [data-theme="dark"] .iconbtn{ background: rgba(11,18,32,0.70); }
+    .iconbtn:hover{ box-shadow: var(--shadow2); }
+    .iconbtn.primary{ border-color: rgba(37,99,235,0.28); color: var(--primary); }
+    .iconbtn.secondary{ border-color: rgba(16,185,129,0.28); color: var(--secondary); }
+    .iconbtn.accent{ border-color: rgba(245,158,11,0.34); color: #9a5a00; }
+
+    .pillbar{ display:flex; flex-wrap:wrap; gap: 10px; margin-top: 10px; }
+    .pill{
+      font-size: 12px;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.75);
+      border-radius: 999px;
+      padding: 7px 10px;
+      backdrop-filter: blur(4px);
+    }
+    [data-theme="dark"] .pill{ background: rgba(11,18,32,0.70); }
+    .pill strong{ color: var(--text); font-weight: 900; }
+    .pill.accent{ border-color: rgba(245,158,11,0.35); background: rgba(245,158,11,0.10); }
+    .pill.secondary{ border-color: rgba(16,185,129,0.35); background: rgba(16,185,129,0.08); }
+
+    section h3{ margin: 0 0 10px; font-size: 18px; letter-spacing: 0.2px; }
+    section h4{ margin: 16px 0 6px; font-size: 15px; color: var(--text); }
+    section h5{ margin: 12px 0 6px; font-size: 13px; color: var(--text); }
+    p{ margin: 8px 0; color: var(--muted); }
+    ul,ol{ margin: 8px 0 8px 18px; color: var(--muted); }
+    li{ margin: 6px 0; }
+
+    /* Make anchors feel nicer */
+    section{ scroll-margin-top: 12px; }
+
+    .grid{ display:grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .grid3{ display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+
+    .mini{
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.88);
+      padding: 12px;
+    }
+    [data-theme="dark"] .mini{ background: rgba(255,255,255,0.03); }
+
+    .callout{
+      border-radius: var(--radius);
+      border: 1px solid rgba(37,99,235,0.20);
+      background: rgba(37,99,235,0.06);
+      padding: 12px 12px;
+      margin: 12px 0;
+    }
+    .callout.secondary{
+      border-color: rgba(16,185,129,0.24);
+      background: rgba(16,185,129,0.08);
+    }
+    .callout.accent{
+      border-color: rgba(245,158,11,0.28);
+      background: rgba(245,158,11,0.10);
+    }
+    .callout strong{ color: var(--text); font-weight: 950; }
+
+    .math{
+      background: rgba(2,6,23,0.02);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 12px;
+      margin: 10px 0;
+      overflow:auto;
+      color: var(--text);
+    }
+    [data-theme="dark"] .math{ background: rgba(255,255,255,0.04); }
+    .math.secondary{
+      background: rgba(16,185,129,0.06);
+      border-color: rgba(16,185,129,0.24);
+    }
+    .math.accent{
+      background: rgba(245,158,11,0.08);
+      border-color: rgba(245,158,11,0.25);
+    }
+
+    table{
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      background: rgba(255,255,255,0.92);
+      margin: 10px 0;
+    }
+    [data-theme="dark"] table{ background: rgba(255,255,255,0.03); }
+    th, td{
+      padding: 10px 10px;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+      color: var(--muted);
+      vertical-align: top;
+    }
+    th{
+      text-align: left;
+      background: rgba(2,6,23,0.03);
+      color: var(--text);
+      font-weight: 950;
+    }
+    [data-theme="dark"] th{ background: rgba(255,255,255,0.05); }
+    tr:last-child td{ border-bottom: none; }
+    .td-strong{ color: var(--text); font-weight: 950; }
+
+    pre{
+      margin: 10px 0;
+      padding: 12px 12px;
+      border-radius: 12px;
+      background: #0b1220;
+      color: rgba(255,255,255,0.92);
+      border: 1px solid rgba(2,6,23,0.22);
+      overflow:auto;
+      font-family: var(--mono);
+      font-size: 12.5px;
+      line-height: 1.6;
+    }
+
+    details{
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: rgba(255,255,255,0.75);
+      padding: 10px 12px;
+      margin: 10px 0;
+    }
+    [data-theme="dark"] details{ background: rgba(255,255,255,0.03); }
+    details summary{
+      cursor: pointer;
+      font-weight: 950;
+      color: var(--text);
+      list-style: none;
+      display:flex;
+      align-items:center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    details summary::-webkit-details-marker{ display:none; }
+    details .details-body{ margin-top: 8px; }
+
+    /* Figma-style figure */
+    figure{ margin: 12px 0; padding: 0; }
+    .fig-card{
+      border: 1px solid var(--border);
+      background: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(243,247,255,0.75));
+      border-radius: var(--radius2);
+      box-shadow: var(--shadow2);
+      overflow:hidden;
+    }
+    [data-theme="dark"] .fig-card{
+      background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02));
+    }
+    .fig-head{
+      display:flex;
+      justify-content: space-between;
+      align-items:center;
+      gap: 12px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(255,255,255,0.80);
+    }
+    [data-theme="dark"] .fig-head{ background: rgba(255,255,255,0.02); }
+    .fig-title{
+      font-size: 13px;
+      font-weight: 950;
+      color: var(--text);
+      letter-spacing: 0.2px;
+      display:flex;
+      align-items:center;
+      gap: 10px;
+    }
+    .fig-badge{
+      font-size: 11px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(37,99,235,0.18);
+      background: rgba(37,99,235,0.06);
+      color: var(--primary);
+      font-weight: 950;
+      white-space: nowrap;
+    }
+    .fig-badge.secondary{
+      border-color: rgba(16,185,129,0.22);
+      background: rgba(16,185,129,0.08);
+      color: var(--secondary);
+    }
+    .fig-badge.accent{
+      border-color: rgba(245,158,11,0.30);
+      background: rgba(245,158,11,0.10);
+      color: #9a5a00;
+    }
+    .fig-body{ padding: 12px 12px 14px; }
+    .fig-grid{ display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+    /* Bigger diagrams (逻辑图放大) */
+    .big-figure .fig-body svg{ height: 420px; }
+    .big-figure .fig-body svg{ width: 100%; }
+    .mid-figure .fig-body svg{ height: 320px; width: 100%; }
+    .small-figure .fig-body svg{ height: 240px; width: 100%; }
+
+    svg{ width:100%; height:auto; display:block; }
+
+    /* Mindmap */
+    .mindmap-wrap{
+      border-radius: var(--radius2);
+      border: 1px solid var(--border);
+      background: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(246,249,255,0.78));
+      padding: 12px;
+      overflow: hidden;
+    }
+    [data-theme="dark"] .mindmap-wrap{
+      background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02));
+    }
+    .mindmap-title{
+      display:flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 0 0 10px;
+      padding: 0 4px;
+    }
+    .mindmap-title h4{ margin:0; font-size: 15px; }
+    .mindmap-title span{ font-size: 12px; color: var(--muted2); }
+
+    /* Back-to-top */
+    .backbar{
+      display:flex;
+      justify-content: flex-end;
+      align-items:center;
+      gap: 12px;
+      margin: 10px 0 0;
+    }
+    .backbar a{
+      text-decoration:none;
+      color: var(--primary);
+      font-weight: 950;
+      font-size: 12px;
+      padding: 7px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(37,99,235,0.18);
+      background: rgba(37,99,235,0.06);
+    }
+    .backbar a:hover{ background: rgba(37,99,235,0.10); }
+
+    /* Animation lab */
+    .lab canvas{
+      width: 100%;
+      height: 320px;
+      display: block;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: rgba(255,255,255,0.92);
+    }
+    [data-theme="dark"] .lab canvas{ background: rgba(255,255,255,0.03); }
+
+    .controls{
+      display:flex;
+      flex-wrap:wrap;
+      gap: 10px;
+      align-items:center;
+      margin-top: 10px;
+    }
+    .controls label{
+      display:flex;
+      align-items:center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--muted2);
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.75);
+      padding: 6px 10px;
+      border-radius: 999px;
+    }
+    [data-theme="dark"] .controls label{ background: rgba(255,255,255,0.03); }
+    .controls input[type="range"]{ width: 180px; }
+    .controls select{
+      font-size: 12px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.90);
+      color: var(--text);
+    }
+    [data-theme="dark"] .controls select{ background: rgba(255,255,255,0.03); }
+
+    .btn{
+      font-size: 12px;
+      font-weight: 950;
+      padding: 7px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.90);
+      color: var(--text);
+      cursor:pointer;
+      transition: 0.15s ease;
+    }
+    [data-theme="dark"] .btn{ background: rgba(255,255,255,0.03); }
+    .btn:hover{ box-shadow: var(--shadow2); }
+    .btn.primary{
+      border-color: rgba(37,99,235,0.28);
+      background: rgba(37,99,235,0.08);
+      color: var(--primary);
+    }
+    .btn.secondary{
+      border-color: rgba(16,185,129,0.28);
+      background: rgba(16,185,129,0.08);
+      color: var(--secondary);
+    }
+    .btn.accent{
+      border-color: rgba(245,158,11,0.32);
+      background: rgba(245,158,11,0.10);
+      color: #9a5a00;
+    }
+
+    .metricrow{
+      display:flex;
+      flex-wrap:wrap;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .metric{
+      font-size: 12px;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.75);
+      padding: 7px 10px;
+      border-radius: 999px;
+    }
+    [data-theme="dark"] .metric{ background: rgba(255,255,255,0.03); }
+    .metric strong{ color: var(--text); font-weight: 950; }
+
+    .smallnote{
+      font-size: 12px;
+      color: var(--muted2);
+      margin-top: 8px;
+    }
+
+    /* Responsive */
+    @media (max-width: 1100px){ .grid3{ grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 980px){
+      .app{ flex-direction: column; }
+      aside{ display:none; }
+      .mobile-top{ display:block; }
+      .grid, .grid3, .fig-grid{ grid-template-columns: 1fr; }
+      .big-figure .fig-body svg{ height: 360px; }
+      .mid-figure .fig-body svg{ height: 300px; }
+    }
+    @media print{
+      .progress, aside, .mobile-top, .hero-actions{ display:none !important; }
+      header.hero, section{ box-shadow:none !important; }
+      body{ background:#fff; color:#111; }
+      pre{ background:#f7f7f7; color:#111; border-color:#e6e6e6; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="progress" id="progress"></div>
+
+  <div class="app">
+
+    <!-- Mobile TOC -->
+    <details class="mobile-top">
+      <summary>
+        <span>目录（点击展开 / 收起）</span>
+        <span style="font-size:12px;color:var(--muted2);font-weight:900">ScrollSpy</span>
+      </summary>
+      <div class="toc" id="toc-mobile"></div>
+    </details>
+
+    <!-- Sidebar -->
+    <aside>
+      <div class="brand">
+        <div class="logo" aria-hidden="true"></div>
+        <div>
+          <h1>降维系统讲义</h1>
+          <p>多元统计 · 图解 · 动画 · 可复用版式</p>
+        </div>
+      </div>
+
+      <div class="side-actions">
+        <input class="search" id="tocSearch" placeholder="搜索目录：如 PCA / LDA / PPCA / k / 协方差 ..." />
+        <button class="chipbtn primary" id="toggleTheme" title="切换主题">主题</button>
+        <button class="chipbtn secondary" id="expandAll" title="展开所有折叠">展开</button>
+        <button class="chipbtn accent" id="collapseAll" title="折叠所有折叠">折叠</button>
+      </div>
+
+      <div class="toc" id="toc">
+        <div class="hint">目录（点击跳转，滚动自动高亮）</div>
+
+        <div class="group">
+          <div class="group-title"><span class="dot"></span>总览</div>
+          <a href="#s0">0. 总路线图（思维导图）</a>
+          <a href="#s0a">0A. 逻辑图与图表（Figma 风格）</a>
+          <a href="#s1">1. 问题统一表述与符号体系</a>
+          <a href="#s2">2. 线性代数底座：投影 / EVD / SVD</a>
+          <a href="#s3">3. 统计底座：协方差、距离、白化、估计稳定性</a>
+        </div>
+
+        <div class="group">
+          <div class="group-title"><span class="dot secondary"></span>PCA 主线</div>
+          <a href="#s4">4. PCA：两种等价定义与关键性质</a>
+          <a href="#s5">5. PCA 计算：SVD、对偶 PCA、随机化/增量</a>
+          <a href="#s6">6. 选 k 与评估：EVR、SSE、Parallel Analysis、CV</a>
+          <a href="#s7">7. 可解释性：载荷、变量贡献、旋转与稀疏</a>
+          <a href="#s8">8. 高维与稳健：\(p\gg n\)、收缩协方差、稳健 PCA</a>
+        </div>
+
+        <div class="group">
+          <div class="group-title"><span class="dot secondary"></span>概率模型降维</div>
+          <a href="#s9">9. PPCA：生成模型、边缘似然、EM 估计</a>
+          <a href="#s10">10. 因子分析（FA）：共同因子、唯一性、旋转</a>
+        </div>
+
+        <div class="group">
+          <div class="group-title"><span class="dot accent"></span>监督与外扩</div>
+          <a href="#s11">11. LDA：Fisher 准则与正则化</a>
+          <a href="#s12">12. CCA / PLS / PCR：相关结构与预测导向</a>
+          <a href="#s13">13. 非线性：Kernel PCA、流形、t-SNE/UMAP、AE</a>
+          <a href="#s14">14. 随机投影与 JL：高维可计算降维</a>
+        </div>
+
+        <div class="group">
+          <div class="group-title"><span class="dot"></span>实战与案例</div>
+          <a href="#s15">15. 实战流程：数据泄露、标准化、缺失值、上线验证</a>
+          <a href="#s16">16. 详细算例 A：二维数据 PCA + LDA（逐步）</a>
+          <a href="#s17">17. 详细算例 B：三维数据 PCA（逐项与重构）</a>
+          <a href="#s18">18. 速查表：公式与选型清单</a>
+          <a href="#s19">19. 动画教学实验室：PCA 与 LDA 交互演示</a>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main>
+      <header class="hero" id="top">
+        <div class="hero-topbar">
+          <div>
+            <h2>降维（Dimensionality Reduction）｜系统讲义</h2>
+            <p class="sub">
+              统一视角：寻找低维表示 \(Z\)（或低维子空间 \(U\)），在“信息保留、噪声抑制、可解释性、计算成本、下游任务指标”之间做最优权衡。
+            </p>
+          </div>
+          <div class="hero-actions">
+            <button class="iconbtn primary" id="jumpMindmap">路线图</button>
+            <button class="iconbtn secondary" id="jumpLab">动画实验室</button>
+            <button class="iconbtn accent" id="jumpExample">算例</button>
+          </div>
+        </div>
+
+        <div class="pillbar">
+          <div class="pill"><strong>主线</strong>：PCA（最大方差 ↔ 最小重构 ↔ 低秩逼近）</div>
+          <div class="pill secondary"><strong>模型</strong>：PPCA / FA（潜变量 + 噪声结构）</div>
+          <div class="pill"><strong>监督</strong>：LDA / PLS / CCA（任务导向）</div>
+          <div class="pill accent"><strong>图表</strong>：逻辑图放大 + 图解面板 + 动画交互</div>
+        </div>
+      </header>
+
+      <!-- 0 -->
+      <section id="s0">
+        <h3>0. 总路线图（思维导图）</h3>
+        <p>学习顺序建议：底座（投影与协方差几何）→ PCA（推导与计算）→ 概率模型（PPCA/FA）→ 监督降维（LDA/PLS/CCA）→ 非线性与可扩展方案。</p>
+
+        <div class="mindmap-wrap">
+          <div class="mindmap-title">
+            <h4>学习路线（Mind Map）</h4>
+            <span>从底座到方法到落地</span>
+          </div>
+
+          <svg viewBox="0 0 1200 640" role="img" aria-label="降维学习路线思维导图（SVG）">
+            <path d="M600 320 C510 250, 420 220, 300 210" stroke="rgba(37,99,235,0.55)" stroke-width="3" fill="none"/>
+            <path d="M600 320 C510 320, 420 320, 300 320" stroke="rgba(37,99,235,0.55)" stroke-width="3" fill="none"/>
+            <path d="M600 320 C510 390, 420 420, 300 430" stroke="rgba(37,99,235,0.55)" stroke-width="3" fill="none"/>
+
+            <path d="M600 320 C690 250, 790 220, 930 210" stroke="rgba(16,185,129,0.50)" stroke-width="3" fill="none"/>
+            <path d="M600 320 C690 320, 790 320, 930 320" stroke="rgba(16,185,129,0.50)" stroke-width="3" fill="none"/>
+            <path d="M600 320 C690 390, 790 420, 930 430" stroke="rgba(245,158,11,0.55)" stroke-width="3" fill="none"/>
+
+            <g filter="drop-shadow(0 12px 14px rgba(2,6,23,0.10))">
+              <rect x="470" y="275" width="260" height="100" rx="18" fill="rgba(37,99,235,0.12)" stroke="rgba(2,6,23,0.10)"/>
+              <text x="600" y="315" text-anchor="middle" font-size="18" font-weight="900" fill="var(--text)">降维（统一视角）</text>
+              <text x="600" y="345" text-anchor="middle" font-size="12" font-weight="700" fill="rgba(71,85,105,0.95)">选表示 / 选子空间 / 选准则</text>
+            </g>
+
+            <g filter="drop-shadow(0 12px 14px rgba(2,6,23,0.08))">
+              <rect x="90" y="165" width="330" height="95" rx="18" fill="rgba(255,255,255,0.92)" stroke="rgba(2,6,23,0.10)"/>
+              <text x="255" y="205" text-anchor="middle" font-size="16" font-weight="900" fill="var(--text)">线性代数</text>
+              <text x="255" y="232" text-anchor="middle" font-size="12" font-weight="700" fill="rgba(71,85,105,0.95)">投影 · 正交 · Rayleigh · EVD/SVD</text>
+
+              <rect x="90" y="275" width="330" height="95" rx="18" fill="rgba(255,255,255,0.92)" stroke="rgba(2,6,23,0.10)"/>
+              <text x="255" y="315" text-anchor="middle" font-size="16" font-weight="900" fill="var(--text)">统计底座</text>
+              <text x="255" y="342" text-anchor="middle" font-size="12" font-weight="700" fill="rgba(71,85,105,0.95)">协方差 · 距离 · 白化 · 估计稳定性</text>
+
+              <rect x="90" y="385" width="330" height="95" rx="18" fill="rgba(255,255,255,0.92)" stroke="rgba(2,6,23,0.10)"/>
+              <text x="255" y="425" text-anchor="middle" font-size="16" font-weight="900" fill="var(--text)">PCA 主线</text>
+              <text x="255" y="452" text-anchor="middle" font-size="12" font-weight="700" fill="rgba(71,85,105,0.95)">最大方差 ↔ 最小重构 ↔ 低秩逼近</text>
+
+              <rect x="780" y="165" width="360" height="95" rx="18" fill="rgba(16,185,129,0.10)" stroke="rgba(2,6,23,0.10)"/>
+              <text x="960" y="205" text-anchor="middle" font-size="16" font-weight="900" fill="var(--text)">计算实现</text>
+              <text x="960" y="232" text-anchor="middle" font-size="12" font-weight="700" fill="rgba(71,85,105,0.95)">SVD / 对偶 PCA / 随机化 / 增量</text>
+
+              <rect x="780" y="275" width="360" height="95" rx="18" fill="rgba(16,185,129,0.10)" stroke="rgba(2,6,23,0.10)"/>
+              <text x="960" y="315" text-anchor="middle" font-size="16" font-weight="900" fill="var(--text)">概率模型</text>
+              <text x="960" y="342" text-anchor="middle" font-size="12" font-weight="700" fill="rgba(71,85,105,0.95)">PPCA / FA：潜变量、似然、EM、BIC</text>
+
+              <rect x="780" y="385" width="360" height="95" rx="18" fill="rgba(245,158,11,0.12)" stroke="rgba(2,6,23,0.10)"/>
+              <text x="960" y="425" text-anchor="middle" font-size="16" font-weight="900" fill="var(--text)">监督与外扩</text>
+              <text x="960" y="452" text-anchor="middle" font-size="12" font-weight="700" fill="rgba(71,85,105,0.95)">LDA/PLS/CCA · 核/流形 · 随机投影</text>
+            </g>
+          </svg>
+        </div>
+
+        <div class="callout accent">
+          <strong>统一口径：</strong> 线性降维常写为 \(Z=U^\top(X-\mu)\)，重构为 \(\hat X=\mu+UU^\top(X-\mu)\)。不同方法的差异主要在“如何确定最优的 \(U\)”。
+        </div>
+
+        <div class="backbar"><a href="#top">返回顶部</a></div>
+      </section>
+
+      <!-- 0A -->
+      <section id="s0a">
+        <h3>0A. 逻辑图与图表</h3>
+
+        <!-- Big: Flow -->
+        <figure class="fig-card big-figure">
+          <div class="fig-head">
+            <div class="fig-title">
+              <span class="fig-badge">Logic</span>
+              端到端：从数据到上线（降维的工程闭环）
+            </div>
+            <span class="fig-badge accent">放大适配</span>
+          </div>
+          <div class="fig-body">
+            <svg viewBox="0 0 1100 360" role="img" aria-label="降维工程闭环流程图（SVG）" preserveAspectRatio="xMidYMid meet">
+              <defs>
+                <linearGradient id="g1" x1="0" x2="1">
+                  <stop offset="0" stop-color="rgba(37,99,235,0.16)"/>
+                  <stop offset="1" stop-color="rgba(16,185,129,0.12)"/>
+                </linearGradient>
+                <filter id="ds" x="-20%" y="-20%" width="140%" height="140%">
+                  <feDropShadow dx="0" dy="12" stdDeviation="10" flood-color="rgba(2,6,23,0.12)"/>
+                </filter>
+              </defs>
+
+              <rect x="10" y="10" width="1080" height="340" rx="20" fill="url(#g1)" stroke="rgba(2,6,23,0.08)" />
+
+              <g filter="url(#ds)">
+                <rect x="40" y="70" width="180" height="100" rx="18" fill="#fff" stroke="rgba(2,6,23,0.10)"/>
+                <text x="130" y="112" text-anchor="middle" font-size="16" font-weight="900" fill="#0b1220">数据</text>
+                <text x="130" y="138" text-anchor="middle" font-size="12" font-weight="700" fill="#475569">采集 / 口径 / 表结构</text>
+
+                <rect x="250" y="70" width="200" height="100" rx="18" fill="#fff" stroke="rgba(2,6,23,0.10)"/>
+                <text x="350" y="112" text-anchor="middle" font-size="16" font-weight="900" fill="#0b1220">预处理</text>
+                <text x="350" y="138" text-anchor="middle" font-size="12" font-weight="700" fill="#475569">缺失 / 标准化 / 异常</text>
+
+                <rect x="480" y="70" width="220" height="100" rx="18" fill="#fff" stroke="rgba(37,99,235,0.22)"/>
+                <text x="590" y="110" text-anchor="middle" font-size="16" font-weight="950" fill="#0b1220">选择准则</text>
+                <text x="590" y="136" text-anchor="middle" font-size="12" font-weight="700" fill="#475569">PCA / PPCA / LDA / PLS / CCA</text>
+
+                <rect x="730" y="70" width="180" height="100" rx="18" fill="#fff" stroke="rgba(16,185,129,0.25)"/>
+                <text x="820" y="112" text-anchor="middle" font-size="16" font-weight="950" fill="#0b1220">拟合变换</text>
+                <text x="820" y="138" text-anchor="middle" font-size="12" font-weight="700" fill="#475569">仅在 train 上 fit</text>
+
+                <rect x="940" y="70" width="140" height="100" rx="18" fill="#fff" stroke="rgba(245,158,11,0.28)"/>
+                <text x="1010" y="110" text-anchor="middle" font-size="16" font-weight="950" fill="#0b1220">评估</text>
+                <text x="1010" y="136" text-anchor="middle" font-size="12" font-weight="700" fill="#475569">EVR / CV / 监控</text>
+              </g>
+
+              <g fill="none" stroke="rgba(2,6,23,0.24)" stroke-width="3" stroke-linecap="round">
+                <path d="M220 120 L250 120"/>
+                <path d="M450 120 L480 120"/>
+                <path d="M700 120 L730 120"/>
+                <path d="M910 120 L940 120"/>
+              </g>
+              <g fill="rgba(2,6,23,0.24)">
+                <path d="M246 120 l-10 -6 v12 z"/>
+                <path d="M476 120 l-10 -6 v12 z"/>
+                <path d="M726 120 l-10 -6 v12 z"/>
+                <path d="M936 120 l-10 -6 v12 z"/>
+              </g>
+
+              <g filter="url(#ds)">
+                <rect x="40" y="205" width="1040" height="115" rx="18" fill="#ffffff" stroke="rgba(2,6,23,0.10)"/>
+                <text x="70" y="238" font-size="13" font-weight="950" fill="#0b1220">上线校验（建议最少保留三项）：</text>
+                <text x="70" y="265" font-size="12" font-weight="700" fill="#475569">1) 预处理+降维是否在同一 pipeline 中，且严格 train-only 拟合？</text>
+                <text x="560" y="265" font-size="12" font-weight="700" fill="#475569">2) k/超参是否通过 CV/验证集选择？</text>
+                <text x="70" y="290" font-size="12" font-weight="700" fill="#475569">3) 线上是否监控输入分布漂移与重构误差/解释方差变化？</text>
+              </g>
+            </svg>
+          </div>
+        </figure>
+
+        <!-- Big: Decision -->
+        <figure class="fig-card big-figure" style="margin-top:14px;">
+          <div class="fig-head">
+            <div class="fig-title">
+              <span class="fig-badge secondary">Selector</span>
+              方法选择：按目标与假设选 PCA / PPCA / LDA / PLS / 非线性
+            </div>
+            <span class="fig-badge accent">放大适配</span>
+          </div>
+          <div class="fig-body">
+            <svg viewBox="0 0 1100 420" role="img" aria-label="降维方法选择决策图（SVG）" preserveAspectRatio="xMidYMid meet">
+              <defs>
+                <filter id="ds2" x="-20%" y="-20%" width="140%" height="140%">
+                  <feDropShadow dx="0" dy="12" stdDeviation="10" flood-color="rgba(2,6,23,0.12)"/>
+                </filter>
+              </defs>
+
+              <rect x="10" y="10" width="1080" height="400" rx="20" fill="#fff" stroke="rgba(2,6,23,0.08)" />
+              <text x="40" y="54" font-size="14" font-weight="950" fill="#0b1220">决策逻辑：先明确目标，再匹配统计假设与计算约束</text>
+
+              <g filter="url(#ds2)">
+                <rect x="410" y="85" width="280" height="80" rx="18" fill="rgba(37,99,235,0.10)" stroke="rgba(37,99,235,0.22)"/>
+                <text x="550" y="118" text-anchor="middle" font-size="16" font-weight="950" fill="#0b1220">目标是什么？</text>
+                <text x="550" y="144" text-anchor="middle" font-size="12" font-weight="700" fill="#475569">压缩 / 建模 / 判别 / 预测 / 可视化</text>
+              </g>
+
+              <g filter="url(#ds2)">
+                <rect x="70" y="210" width="300" height="110" rx="18" fill="#fff" stroke="rgba(37,99,235,0.18)"/>
+                <text x="220" y="248" text-anchor="middle" font-size="15" font-weight="950" fill="#0b1220">压缩 / 重构优先</text>
+                <text x="220" y="274" text-anchor="middle" font-size="12" font-weight="700" fill="#475569">最小重构误差、低秩逼近</text>
+                <text x="220" y="300" text-anchor="middle" font-size="12" font-weight="950" fill="rgba(37,99,235,0.95)">PCA / 稀疏PCA / RPCA</text>
+
+                <rect x="400" y="210" width="300" height="110" rx="18" fill="#fff" stroke="rgba(16,185,129,0.22)"/>
+                <text x="550" y="248" text-anchor="middle" font-size="15" font-weight="950" fill="#0b1220">概率建模优先</text>
+                <text x="550" y="274" text-anchor="middle" font-size="12" font-weight="700" fill="#475569">不确定性、缺失值、似然/BIC</text>
+                <text x="550" y="300" text-anchor="middle" font-size="12" font-weight="950" fill="rgba(16,185,129,0.95)">PPCA / FA / Bayesian</text>
+
+                <rect x="730" y="210" width="300" height="110" rx="18" fill="#fff" stroke="rgba(245,158,11,0.26)"/>
+                <text x="880" y="248" text-anchor="middle" font-size="15" font-weight="950" fill="#0b1220">监督任务优先</text>
+                <text x="880" y="274" text-anchor="middle" font-size="12" font-weight="700" fill="#475569">分类/回归指标最重要</text>
+                <text x="880" y="300" text-anchor="middle" font-size="12" font-weight="950" fill="rgba(245,158,11,0.95)">LDA / PLS / CCA / PCR</text>
+              </g>
+
+              <g fill="none" stroke="rgba(2,6,23,0.22)" stroke-width="3" stroke-linecap="round">
+                <path d="M550 165 C430 185, 320 190, 220 210" />
+                <path d="M550 165 L550 210" />
+                <path d="M550 165 C670 185, 780 190, 880 210" />
+              </g>
+
+              <g>
+                <rect x="70" y="345" width="960" height="50" rx="16" fill="rgba(2,6,23,0.03)" stroke="rgba(2,6,23,0.08)"/>
+                <text x="550" y="375" text-anchor="middle" font-size="12" font-weight="700" fill="#475569">
+                  非线性结构明显或主要做可视化：Kernel PCA / 流形学习 / t-SNE / UMAP / AutoEncoder（解释全局距离需谨慎）
+                </text>
+              </g>
+            </svg>
+          </div>
+        </figure>
+
+        <!-- Mid: Charts panel -->
+        <figure class="fig-card mid-figure" style="margin-top:14px;">
+          <div class="fig-head">
+            <div class="fig-title">
+              <span class="fig-badge">Figma Chart</span>
+              图表面板：特征值谱（Scree）与 EVR（示意模板）
+            </div>
+            <span class="fig-badge secondary">可替换真实数据</span>
+          </div>
+          <div class="fig-body">
+            <svg viewBox="0 0 1100 340" role="img" aria-label="Scree + EVR 图表（SVG）" preserveAspectRatio="xMidYMid meet">
+              <defs>
+                <filter id="dsChart" x="-20%" y="-20%" width="140%" height="140%">
+                  <feDropShadow dx="0" dy="12" stdDeviation="10" flood-color="rgba(2,6,23,0.10)"/>
+                </filter>
+              </defs>
+
+              <rect x="10" y="10" width="1080" height="320" rx="20" fill="#fff" stroke="rgba(2,6,23,0.08)" />
+
+              <!-- axes -->
+              <g stroke="rgba(2,6,23,0.18)" stroke-width="2" fill="none">
+                <path d="M90 270 L1020 270" />
+                <path d="M90 60 L90 270" />
+              </g>
+
+              <!-- grid -->
+              <g stroke="rgba(2,6,23,0.06)" stroke-width="1">
+                <path d="M90 230 L1020 230" />
+                <path d="M90 190 L1020 190" />
+                <path d="M90 150 L1020 150" />
+                <path d="M90 110 L1020 110" />
+              </g>
+
+              <!-- bars: eigenvalues (template) -->
+              <g filter="url(#dsChart)">
+                <g>
+                  <!-- heights (template): 1.00, 0.62, 0.40, 0.28, 0.20, 0.16, 0.12, 0.10 -->
+                  <rect x="140" y="90" width="70" height="180" rx="12" fill="rgba(37,99,235,0.20)" stroke="rgba(37,99,235,0.35)"/>
+                  <rect x="240" y="158" width="70" height="112" rx="12" fill="rgba(37,99,235,0.20)" stroke="rgba(37,99,235,0.35)"/>
+                  <rect x="340" y="190" width="70" height="80" rx="12" fill="rgba(37,99,235,0.20)" stroke="rgba(37,99,235,0.35)"/>
+                  <rect x="440" y="214" width="70" height="56" rx="12" fill="rgba(37,99,235,0.20)" stroke="rgba(37,99,235,0.35)"/>
+                  <rect x="540" y="230" width="70" height="40" rx="12" fill="rgba(37,99,235,0.20)" stroke="rgba(37,99,235,0.35)"/>
+                  <rect x="640" y="238" width="70" height="32" rx="12" fill="rgba(37,99,235,0.20)" stroke="rgba(37,99,235,0.35)"/>
+                  <rect x="740" y="246" width="70" height="24" rx="12" fill="rgba(37,99,235,0.20)" stroke="rgba(37,99,235,0.35)"/>
+                  <rect x="840" y="250" width="70" height="20" rx="12" fill="rgba(37,99,235,0.20)" stroke="rgba(37,99,235,0.35)"/>
+                </g>
+
+                <!-- EVR cumulative line (template) -->
+                <path d="M175 210
+                         L275 175
+                         L375 152
+                         L475 138
+                         L575 128
+                         L675 120
+                         L775 114
+                         L875 110"
+                      fill="none" stroke="rgba(16,185,129,0.85)" stroke-width="4" stroke-linecap="round" />
+
+                <!-- markers -->
+                <g fill="rgba(16,185,129,0.95)">
+                  <circle cx="175" cy="210" r="5"/>
+                  <circle cx="275" cy="175" r="5"/>
+                  <circle cx="375" cy="152" r="5"/>
+                  <circle cx="475" cy="138" r="5"/>
+                  <circle cx="575" cy="128" r="5"/>
+                  <circle cx="675" cy="120" r="5"/>
+                  <circle cx="775" cy="114" r="5"/>
+                  <circle cx="875" cy="110" r="5"/>
+                </g>
+
+                <!-- elbow highlight -->
+                <g>
+                  <circle cx="375" cy="152" r="10" fill="rgba(245,158,11,0.18)" stroke="rgba(245,158,11,0.75)" stroke-width="3"/>
+                  <text x="395" y="150" font-size="12" font-weight="950" fill="rgba(245,158,11,0.95)">拐点候选</text>
+                </g>
+              </g>
+
+              <!-- labels -->
+              <text x="90" y="44" font-size="14" font-weight="950" fill="#0b1220">Scree（蓝柱）与累计 EVR（绿线）模板</text>
+              <text x="92" y="292" font-size="12" font-weight="700" fill="#475569">主成分序号</text>
+              <text x="18" y="70" font-size="12" font-weight="700" fill="#475569">强度</text>
+
+              <!-- legend -->
+              <g>
+                <rect x="790" y="34" width="290" height="40" rx="14" fill="rgba(2,6,23,0.03)" stroke="rgba(2,6,23,0.08)"/>
+                <rect x="806" y="47" width="16" height="16" rx="6" fill="rgba(37,99,235,0.20)" stroke="rgba(37,99,235,0.35)"/>
+                <text x="828" y="60" font-size="12" font-weight="900" fill="#475569">特征值（方差强度）</text>
+
+                <line x1="930" y1="55" x2="955" y2="55" stroke="rgba(16,185,129,0.85)" stroke-width="4" stroke-linecap="round"/>
+                <circle cx="960" cy="55" r="4" fill="rgba(16,185,129,0.95)"/>
+                <text x="970" y="60" font-size="12" font-weight="900" fill="#475569">累计 EVR</text>
+              </g>
+            </svg>
+          </div>
+        </figure>
+
+        <div class="backbar"><a href="#top">返回顶部</a></div>
+      </section>
+
+      <!-- 1 -->
+      <section id="s1">
+        <h3>1. 问题统一表述与符号体系</h3>
+
+        <h4>1.1 数据与目标</h4>
+        <ul>
+          <li>随机向量：\(X\in\mathbb{R}^p\)，均值 \(\mu=\mathbb{E}[X]\)，协方差 \(\Sigma=\mathrm{Cov}(X)\)。</li>
+          <li>样本：\(\{x_i\}_{i=1}^n\)，中心化矩阵 \(X_c\in\mathbb{R}^{n\times p}\)。</li>
+          <li>降维：寻找 \(k\ll p\)，构造低维表示 \(Z\in\mathbb{R}^k\)。</li>
+        </ul>
+
+        <h4>1.2 线性降维统一形式</h4>
+        <div class="math">
+          \[
+            U\in\mathbb{R}^{p\times k},\ U^\top U=I_k,\quad
+            Z=U^\top(X-\mu),\quad
+            \hat X=\mu+UZ=\mu+UU^\top(X-\mu).
+          \]
+        </div>
+
+        <h4>1.3 三类最优准则</h4>
+        <div class="grid3">
+          <div class="mini">
+            <h5>几何/能量（PCA）</h5>
+            <p>最大化投影方差或最小化重构误差。</p>
+          </div>
+          <div class="mini">
+            <h5>概率/似然（PPCA/FA）</h5>
+            <p>显式噪声结构与潜变量，输出不确定性。</p>
+          </div>
+          <div class="mini">
+            <h5>任务/判别（LDA/PLS）</h5>
+            <p>下游指标优先：分类可分性或预测性能。</p>
+          </div>
+        </div>
+
+        <div class="backbar"><a href="#top">返回顶部</a></div>
+      </section>
+
+      <!-- 2 -->
+      <section id="s2">
+        <h3>2. 线性代数底座：投影 / 特征分解 / SVD</h3>
+
+        <h4>2.1 正交投影</h4>
+        <div class="math secondary">
+          \[
+            P=UU^\top,\quad P^2=P,\quad P^\top=P,\quad
+            \hat x=\mu+UU^\top(x-\mu).
+          \]
+        </div>
+
+        <h4>2.2 Rayleigh 商</h4>
+        <div class="math">
+          \[
+            \max_{\|u\|=1} u^\top\Sigma u = \lambda_{\max}(\Sigma),
+            \quad \Sigma u_1=\lambda_1 u_1.
+          \]
+        </div>
+
+        <h4>2.3 SVD 与最优低秩逼近</h4>
+        <div class="math secondary">
+          \[
+            X_c=ADB^\top,\quad X_{c,k}=A_kD_kB_k^\top\ \text{使 }\|X_c-X_{c,k}\|_F\ \text{最小}.
+          \]
+        </div>
+
+        <div class="backbar"><a href="#top">返回顶部</a></div>
+      </section>
+
+      <!-- 3 -->
+      <section id="s3">
+        <h3>3. 统计底座：协方差、距离、白化、估计稳定性</h3>
+
+        <h4>3.1 投影方差</h4>
+        <div class="math">
+          \[
+            Y=u^\top(X-\mu),\ \|u\|=1
+            \Rightarrow \mathrm{Var}(Y)=u^\top\Sigma u.
+          \]
+        </div>
+
+        <h4>3.2 马氏距离</h4>
+        <div class="math secondary">
+          \[
+            d_M(x,\mu)=\sqrt{(x-\mu)^\top\Sigma^{-1}(x-\mu)}.
+          \]
+        </div>
+
+        <h4>3.3 白化</h4>
+        <div class="math">
+          \[
+            \Sigma=V\Lambda V^\top,\quad W=\Lambda^{-1/2}V^\top,\quad \mathrm{Cov}(W(X-\mu))=I.
+          \]
+        </div>
+
+        <div class="callout accent">
+          <strong>高维提醒：</strong> 当 \(p\) 接近 \(n\) 或 \(p\gg n\) 时，样本协方差的谱会明显受噪声影响，需考虑收缩/正则化或 SVD 途径。
+        </div>
+
+        <div class="backbar"><a href="#top">返回顶部</a></div>
+      </section>
+
+      <!-- 4 -->
+      <section id="s4">
+        <h3>4. PCA：两种等价定义与关键性质</h3>
+
+        <h4>4.1 最大方差定义</h4>
+        <div class="math">
+          \[
+            u_1=\arg\max_{\|u\|=1}u^\top\Sigma u,\quad
+            u_j=\arg\max_{\|u\|=1,\,u\perp u_{1:(j-1)}}u^\top\Sigma u.
+          \]
+        </div>
+
+        <h4>4.2 最小重构误差定义（等价）</h4>
+        <div class="math secondary">
+          \[
+            \min_{U^\top U=I_k}\ \mathbb{E}\|X-(\mu+UU^\top(X-\mu))\|^2.
+          \]
+        </div>
+
+        <h4>4.3 特征值结论</h4>
+        <div class="grid">
+          <div class="mini">
+            <h5>解释方差（EVR）</h5>
+            <div class="math">
+              \[
+                \mathrm{EVR}(k)=\frac{\sum_{j=1}^k\lambda_j}{\sum_{j=1}^p\lambda_j}.
+              \]
+            </div>
+          </div>
+          <div class="mini">
+            <h5>理论重构损失</h5>
+            <div class="math accent">
+              \[
+                \mathbb{E}\|X-\hat X\|^2=\sum_{j=k+1}^p\lambda_j.
+              \]
+            </div>
+          </div>
+        </div>
+
+        <figure class="fig-card mid-figure" style="margin-top:14px;">
+          <div class="fig-head">
+            <div class="fig-title">
+              <span class="fig-badge">Figma Chart</span>
+              图解：解释方差与重构误差在谱上的“分配关系”
+            </div>
+            <span class="fig-badge accent">橙色强调</span>
+          </div>
+          <div class="fig-body">
+            <svg viewBox="0 0 1100 320" role="img" aria-label="EVR 与误差分解图（SVG）" preserveAspectRatio="xMidYMid meet">
+              <defs>
+                <filter id="ds4" x="-20%" y="-20%" width="140%" height="140%">
+                  <feDropShadow dx="0" dy="12" stdDeviation="10" flood-color="rgba(2,6,23,0.10)"/>
+                </filter>
+              </defs>
+              <rect x="10" y="10" width="1080" height="300" rx="20" fill="#fff" stroke="rgba(2,6,23,0.08)"/>
+
+              <text x="40" y="52" font-size="14" font-weight="950" fill="#0b1220">谱分解视角：前 k 个特征值贡献 EVR，尾部贡献重构误差</text>
+
+              <g filter="url(#ds4)">
+                <!-- bar strip -->
+                <rect x="60" y="110" width="980" height="70" rx="16" fill="rgba(2,6,23,0.03)" stroke="rgba(2,6,23,0.08)"/>
+                <!-- kept part -->
+                <rect x="60" y="110" width="620" height="70" rx="16" fill="rgba(16,185,129,0.16)" stroke="rgba(16,185,129,0.30)"/>
+                <!-- tail part -->
+                <rect x="680" y="110" width="360" height="70" rx="16" fill="rgba(245,158,11,0.18)" stroke="rgba(245,158,11,0.34)"/>
+
+                <text x="370" y="152" text-anchor="middle" font-size="13" font-weight="950" fill="rgba(16,185,129,0.95)">\(\sum_{j\le k}\lambda_j\)（解释方差）</text>
+                <text x="860" y="152" text-anchor="middle" font-size="13" font-weight="950" fill="rgba(245,158,11,0.95)">\(\sum_{j>k}\lambda_j\)（重构损失）</text>
+
+                <!-- split marker -->
+                <line x1="680" y1="100" x2="680" y2="190" stroke="rgba(2,6,23,0.20)" stroke-width="3" />
+                <circle cx="680" cy="105" r="6" fill="rgba(37,99,235,0.85)"/>
+                <text x="680" y="212" text-anchor="middle" font-size="12" font-weight="950" fill="rgba(37,99,235,0.95)">k</text>
+              </g>
+
+              <g>
+                <rect x="60" y="215" width="980" height="60" rx="16" fill="rgba(37,99,235,0.06)" stroke="rgba(37,99,235,0.18)"/>
+                <text x="80" y="248" font-size="12" font-weight="950" fill="#0b1220">对应指标：</text>
+                <text x="170" y="248" font-size="12" font-weight="700" fill="#475569">\(\mathrm{EVR}(k)=\frac{\sum_{j\le k}\lambda_j}{\sum_{j\le p}\lambda_j}\)</text>
+                <text x="590" y="248" font-size="12" font-weight="700" fill="#475569">\(\mathbb{E}\|X-\hat X\|^2=\sum_{j>k}\lambda_j\)</text>
+              </g>
+            </svg>
+          </div>
+        </figure>
+
+        <div class="backbar"><a href="#top">返回顶部</a></div>
+      </section>
+
+      <!-- 5 -->
+      <section id="s5">
+        <h3>5. PCA 计算：SVD、对偶 PCA、随机化/增量</h3>
+
+        <h4>5.1 SVD 版 PCA（推荐）</h4>
+        <div class="math secondary">
+          \[
+            X_c = ADB^\top,\qquad
+            S=\frac{1}{n-1}X_c^\top X_c = B\left(\frac{D^2}{n-1}\right)B^\top.
+          \]
+        </div>
+
+        <h4>5.2 对偶 PCA（当 \(p\gg n\)）</h4>
+        <div class="math">
+          \[
+            G=\frac{1}{n-1}X_cX_c^\top\in\mathbb{R}^{n\times n},\quad
+            u_j \propto X_c^\top a_j.
+          \]
+        </div>
+
+        <h4>5.3 大规模近似</h4>
+        <ul>
+          <li>随机化 SVD：近似 top-k 奇异向量，速度快。</li>
+          <li>增量 PCA：流式或分批训练，内存友好。</li>
+        </ul>
+
+        <div class="backbar"><a href="#top">返回顶部</a></div>
+      </section>
+
+      <!-- 6 -->
+      <section id="s6">
+        <h3>6. 选 k 与评估：EVR、SSE、Parallel Analysis、CV</h3>
+
+        <h4>6.1 EVR 与 SSE</h4>
+        <div class="math">
+          \[
+            \mathrm{EVR}(k)=\frac{\sum_{j=1}^k\hat\lambda_j}{\sum_{j=1}^p\hat\lambda_j},\qquad
+            \mathrm{SSE}=(n-1)\sum_{j=k+1}^p \hat\lambda_j.
+          \]
+        </div>
+
+        <h4>6.2 Parallel Analysis（统计型选 k）</h4>
+        <ol>
+          <li>生成随机/置换数据；对每组做 PCA 得到噪声特征值分位数阈值。</li>
+          <li>选择 \(\hat\lambda_j\) 显著大于阈值的最大 \(j\) 为 \(k\)。</li>
+        </ol>
+
+        <h4>6.3 交叉验证（工程最可靠）</h4>
+        <div class="callout accent">
+          <strong>关键规则：</strong> 降维属于“学习变换”，必须在训练集 fit，在验证/测试集仅 transform，避免数据泄露。
+        </div>
+
+        <figure class="fig-card mid-figure" style="margin-top:14px;">
+          <div class="fig-head">
+            <div class="fig-title">
+              <span class="fig-badge">Figma Chart</span>
+              图表：k 的偏差-方差权衡（示意模板）
+            </div>
+            <span class="fig-badge secondary">CV 视角</span>
+          </div>
+          <div class="fig-body">
+            <svg viewBox="0 0 1100 320" role="img" aria-label="k 的偏差-方差权衡图（SVG）" preserveAspectRatio="xMidYMid meet">
+              <rect x="10" y="10" width="1080" height="300" rx="20" fill="#fff" stroke="rgba(2,6,23,0.08)"/>
+              <g stroke="rgba(2,6,23,0.18)" stroke-width="2" fill="none">
+                <path d="M90 260 L1020 260"/>
+                <path d="M90 60 L90 260"/>
+              </g>
+              <g stroke="rgba(2,6,23,0.06)" stroke-width="1">
+                <path d="M90 220 L1020 220"/>
+                <path d="M90 180 L1020 180"/>
+                <path d="M90 140 L1020 140"/>
+                <path d="M90 100 L1020 100"/>
+              </g>
+
+              <!-- bias curve (decreasing) -->
+              <path d="M120 95 C220 130, 330 165, 500 205 C700 250, 860 260, 980 262"
+                    fill="none" stroke="rgba(37,99,235,0.80)" stroke-width="4" stroke-linecap="round"/>
+              <!-- variance curve (increasing) -->
+              <path d="M120 262 C260 260, 420 250, 560 220 C720 185, 840 140, 980 95"
+                    fill="none" stroke="rgba(16,185,129,0.80)" stroke-width="4" stroke-linecap="round"/>
+              <!-- total (U-shape) -->
+              <path d="M120 150 C260 175, 380 205, 520 215 C680 225, 820 205, 980 150"
+                    fill="none" stroke="rgba(245,158,11,0.85)" stroke-width="5" stroke-linecap="round"/>
+
+              <!-- optimum -->
+              <g>
+                <circle cx="560" cy="215" r="10" fill="rgba(245,158,11,0.18)" stroke="rgba(245,158,11,0.75)" stroke-width="3"/>
+                <text x="590" y="218" font-size="12" font-weight="950" fill="rgba(245,158,11,0.95)">CV 最优 k 候选</text>
+              </g>
+
+              <text x="90" y="44" font-size="14" font-weight="950" fill="#0b1220">偏差-方差（示意）：k 太小信息不足，k 太大易过拟合/噪声注入</text>
+
+              <!-- legend -->
+              <g>
+                <rect x="770" y="34" width="310" height="48" rx="16" fill="rgba(2,6,23,0.03)" stroke="rgba(2,6,23,0.08)"/>
+                <line x1="790" y1="52" x2="820" y2="52" stroke="rgba(37,99,235,0.80)" stroke-width="4" stroke-linecap="round"/>
+                <text x="828" y="56" font-size="12" font-weight="900" fill="#475569">欠拟合（偏差）</text>
+
+                <line x1="910" y1="52" x2="940" y2="52" stroke="rgba(16,185,129,0.80)" stroke-width="4" stroke-linecap="round"/>
+                <text x="948" y="56" font-size="12" font-weight="900" fill="#475569">过拟合（方差）</text>
+
+                <line x1="1030" y1="52" x2="1060" y2="52" stroke="rgba(245,158,11,0.85)" stroke-width="5" stroke-linecap="round"/>
+              </g>
+
+              <text x="92" y="282" font-size="12" font-weight="700" fill="#475569">k（维度）</text>
+            </svg>
+          </div>
+        </figure>
+
+        <div class="backbar"><a href="#top">返回顶部</a></div>
+      </section>
+
+      <!-- 7 -->
+      <section id="s7">
+        <h3>7. 可解释性：载荷、变量贡献、旋转与稀疏</h3>
+        <h4>7.1 载荷与得分</h4>
+        <ul>
+          <li>载荷：主方向 \(u_j\)，表示变量组合方式。</li>
+          <li>得分：\(z_{ij}=u_j^\top(x_i-\bar x)\)，表示样本在主成分坐标下的位置。</li>
+        </ul>
+
+        <h4>7.2 稀疏化与旋转（在“最优性”与“可命名性”之间）</h4>
+        <ul>
+          <li>稀疏 PCA：用 \(\ell_1\) 约束让载荷更稀疏（解释更直观）。</li>
+          <li>FA 常配合旋转（如 Varimax）提升因子可命名性。</li>
+        </ul>
+
+        <div class="backbar"><a href="#top">返回顶部</a></div>
+      </section>
+
+      <!-- 8 -->
+      <section id="s8">
+        <h3>8. 高维与稳健：\(p\gg n\)、收缩协方差、稳健 PCA</h3>
+
+        <h4>8.1 高维现象</h4>
+        <ul>
+          <li>样本协方差秩最多为 \(n-1\)，谱结构易受噪声扭曲。</li>
+          <li>主方向稳定性下降；需要正则化或稳健方法。</li>
+        </ul>
+
+        <h4>8.2 常见对策</h4>
+        <div class="grid3">
+          <div class="mini"><h5>SVD / 对偶 PCA</h5><p>计算与数值稳定性更好。</p></div>
+          <div class="mini"><h5>收缩/正则化</h5><p>\(S+\alpha I\) 或收缩到结构矩阵。</p></div>
+          <div class="mini"><h5>稳健分解</h5><p>低秩 + 稀疏（对离群点更耐受）。</p></div>
+        </div>
+
+        <div class="math accent">
+          \[
+            X = L + S,\quad \mathrm{rank}(L)\ \text{小},\quad S\ \text{稀疏}.
+          \]
+        </div>
+
+        <div class="backbar"><a href="#top">返回顶部</a></div>
+      </section>
+
+      <!-- 9 -->
+      <section id="s9">
+        <h3>9. PPCA：生成模型、边缘似然、EM 估计</h3>
+
+        <h4>9.1 生成模型</h4>
+        <div class="math">
+          \[
+            X=\mu+WZ+\varepsilon,\quad
+            Z\sim\mathcal{N}(0,I_k),\quad
+            \varepsilon\sim\mathcal{N}(0,\sigma^2 I).
+          \]
+        </div>
+        <div class="math secondary">
+          \[
+            X\sim\mathcal{N}(\mu,\ WW^\top+\sigma^2 I).
+          \]
+        </div>
+
+        <figure class="fig-card mid-figure" style="margin-top:14px;">
+          <div class="fig-head">
+            <div class="fig-title">
+              <span class="fig-badge secondary">Figma Diagram</span>
+              图解：PPCA 图模型（Plate 风格）
+            </div>
+            <span class="fig-badge">Model</span>
+          </div>
+          <div class="fig-body">
+            <svg viewBox="0 0 1100 320" role="img" aria-label="PPCA 图模型（SVG）" preserveAspectRatio="xMidYMid meet">
+              <defs>
+                <filter id="dsPPCA" x="-20%" y="-20%" width="140%" height="140%">
+                  <feDropShadow dx="0" dy="12" stdDeviation="10" flood-color="rgba(2,6,23,0.10)"/>
+                </filter>
+              </defs>
+              <rect x="10" y="10" width="1080" height="300" rx="20" fill="#fff" stroke="rgba(2,6,23,0.08)"/>
+
+              <!-- plate -->
+              <g filter="url(#dsPPCA)">
+                <rect x="160" y="70" width="780" height="190" rx="18" fill="rgba(2,6,23,0.03)" stroke="rgba(2,6,23,0.10)"/>
+                <text x="188" y="98" font-size="12" font-weight="950" fill="#475569">i = 1..n</text>
+
+                <!-- nodes -->
+                <circle cx="440" cy="165" r="42" fill="rgba(16,185,129,0.12)" stroke="rgba(16,185,129,0.55)" stroke-width="3"/>
+                <text x="440" y="170" text-anchor="middle" font-size="14" font-weight="950" fill="#0b1220">Zᵢ</text>
+                <text x="440" y="195" text-anchor="middle" font-size="12" font-weight="700" fill="#475569">\(\mathcal{N}(0,I)\)</text>
+
+                <circle cx="680" cy="165" r="42" fill="rgba(37,99,235,0.12)" stroke="rgba(37,99,235,0.55)" stroke-width="3"/>
+                <text x="680" y="170" text-anchor="middle" font-size="14" font-weight="950" fill="#0b1220">Xᵢ</text>
+                <text x="680" y="195" text-anchor="middle" font-size="12" font-weight="700" fill="#475569">观测</text>
+
+                <!-- parameters -->
+                <rect x="500" y="112" width="80" height="30" rx="12" fill="rgba(245,158,11,0.16)" stroke="rgba(245,158,11,0.60)"/>
+                <text x="540" y="132" text-anchor="middle" font-size="12" font-weight="950" fill="#9a5a00">W</text>
+
+                <rect x="760" y="112" width="100" height="30" rx="12" fill="rgba(245,158,11,0.16)" stroke="rgba(245,158,11,0.60)"/>
+                <text x="810" y="132" text-anchor="middle" font-size="12" font-weight="950" fill="#9a5a00">\(\sigma^2\)</text>
+
+                <!-- arrows -->
+                <g stroke="rgba(2,6,23,0.26)" stroke-width="3" fill="none" stroke-linecap="round">
+                  <path d="M482 165 L638 165"/>
+                  <path d="M540 142 C560 155, 600 155, 638 155"/>
+                  <path d="M810 142 C790 155, 760 155, 722 155"/>
+                </g>
+                <g fill="rgba(2,6,23,0.26)">
+                  <path d="M635 165 l-10 -6 v12 z"/>
+                  <path d="M635 155 l-10 -6 v12 z"/>
+                  <path d="M725 155 l10 -6 v12 z"/>
+                </g>
+
+                <text x="560" y="235" text-anchor="middle" font-size="12" font-weight="700" fill="#475569">
+                  \(X_i=\mu+WZ_i+\varepsilon_i,\ \varepsilon_i\sim\mathcal{N}(0,\sigma^2I)\)
+                </text>
+              </g>
+            </svg>
+          </div>
+        </figure>
+
+        <div class="backbar"><a href="#top">返回顶部</a></div>
+      </section>
+
+      <!-- 10 -->
+      <section id="s10">
+        <h3>10. 因子分析（FA）：共同因子、唯一性、旋转</h3>
+
+        <h4>10.1 模型</h4>
+        <div class="math">
+          \[
+            X=\mu+\Lambda F+\varepsilon,\quad
+            F\sim\mathcal{N}(0,I_k),\quad
+            \varepsilon\sim\mathcal{N}(0,\Psi),\ \Psi\ \text{常为对角阵}.
+          \]
+        </div>
+        <div class="math secondary">
+          \[
+            \Sigma=\Lambda\Lambda^\top+\Psi.
+          \]
+        </div>
+
+        <h4>10.2 PCA vs FA（要点对照）</h4>
+        <table>
+          <thead><tr><th>维度</th><th>PCA</th><th>FA</th></tr></thead>
+          <tbody>
+            <tr><td class="td-strong">目标</td><td>解释总方差 / 低秩逼近</td><td>解释共同方差结构</td></tr>
+            <tr><td class="td-strong">噪声</td><td>不显式建模</td><td>\(\Psi\) 区分独特性（异方差）</td></tr>
+            <tr><td class="td-strong">解释</td><td>载荷可能稠密</td><td>旋转后更易命名</td></tr>
+          </tbody>
+        </table>
+
+        <div class="backbar"><a href="#top">返回顶部</a></div>
+      </section>
+
+      <!-- 11 -->
+      <section id="s11">
+        <h3>11. LDA：Fisher 准则与正则化</h3>
+
+        <h4>11.1 散度矩阵</h4>
+        <div class="math">
+          \[
+            S_W=\sum_{c=1}^C\sum_{i\in c}(x_i-\mu_c)(x_i-\mu_c)^\top,\quad
+            S_B=\sum_{c=1}^C n_c(\mu_c-\mu)(\mu_c-\mu)^\top.
+          \]
+        </div>
+
+        <h4>11.2 广义特征值</h4>
+        <div class="math secondary">
+          \[
+            S_B w=\lambda S_W w,\quad
+            \text{二分类： } w\propto S_W^{-1}(\mu_2-\mu_1).
+          \]
+        </div>
+
+        <h4>11.3 正则化 LDA</h4>
+        <div class="math accent">
+          \[
+            S_W^{(\alpha)} = S_W + \alpha I,\quad \alpha>0.
+          \]
+        </div>
+
+        <div class="backbar"><a href="#top">返回顶部</a></div>
+      </section>
+
+      <!-- 12 -->
+      <section id="s12">
+        <h3>12. CCA / PLS / PCR：相关结构与预测导向</h3>
+
+        <h4>12.1 CCA（相关最大）</h4>
+        <div class="math secondary">
+          \[
+            \max_{a,b}\ \mathrm{corr}(a^\top X,\ b^\top Y)
+            \Longleftrightarrow
+            \max_{a,b}\ \frac{a^\top\Sigma_{XY}b}{\sqrt{a^\top\Sigma_{XX}a}\sqrt{b^\top\Sigma_{YY}b}}.
+          \]
+        </div>
+
+        <h4>12.2 PCR vs PLS（预测视角）</h4>
+        <div class="grid">
+          <div class="mini"><h5>PCR</h5><p>先 PCA 再回归；稳定但不看 \(Y\)。</p></div>
+          <div class="mini"><h5>PLS</h5><p>方向同时“解释 \(X\)”且“与 \(Y\) 强相关”。</p></div>
+        </div>
+
+        <div class="backbar"><a href="#top">返回顶部</a></div>
+      </section>
+
+      <!-- 13 -->
+      <section id="s13">
+        <h3>13. 非线性：Kernel PCA、流形、t-SNE/UMAP、AE</h3>
+
+        <h4>13.1 Kernel PCA</h4>
+        <div class="math secondary">
+          \[
+            K_{ij}=k(x_i,x_j),\quad
+            \text{对中心化后的 }K\ \text{做特征分解得到非线性主成分。}
+          \]
+        </div>
+
+        <h4>13.2 t-SNE/UMAP（可视化强，解释需谨慎）</h4>
+        <ul>
+          <li>更强调局部结构；全局距离不可直接等价为真实几何。</li>
+          <li>对参数/随机种子敏感，建议重复运行与对照。</li>
+        </ul>
+
+        <div class="backbar"><a href="#top">返回顶部</a></div>
+      </section>
+
+      <!-- 14 -->
+      <section id="s14">
+        <h3>14. 随机投影与 JL：高维可计算降维</h3>
+
+        <div class="math secondary">
+          \[
+            (1-\varepsilon)\|x_i-x_j\|^2 \le \|Rx_i-Rx_j\|^2 \le (1+\varepsilon)\|x_i-x_j\|^2.
+          \]
+        </div>
+
+        <figure class="fig-card mid-figure" style="margin-top:14px;">
+          <div class="fig-head">
+            <div class="fig-title">
+              <span class="fig-badge">Figma Chart</span>
+              图表：维度 m 与误差 \(\varepsilon\)（JL 直觉示意）
+            </div>
+            <span class="fig-badge accent">可扩展</span>
+          </div>
+          <div class="fig-body">
+            <svg viewBox="0 0 1100 320" role="img" aria-label="JL 直觉图（SVG）" preserveAspectRatio="xMidYMid meet">
+              <rect x="10" y="10" width="1080" height="300" rx="20" fill="#fff" stroke="rgba(2,6,23,0.08)"/>
+              <g stroke="rgba(2,6,23,0.18)" stroke-width="2" fill="none">
+                <path d="M90 260 L1020 260"/>
+                <path d="M90 60 L90 260"/>
+              </g>
+              <g stroke="rgba(2,6,23,0.06)" stroke-width="1">
+                <path d="M90 220 L1020 220"/>
+                <path d="M90 180 L1020 180"/>
+                <path d="M90 140 L1020 140"/>
+                <path d="M90 100 L1020 100"/>
+              </g>
+
+              <!-- curve: m grows as eps decreases -->
+              <path d="M140 110 C260 140, 360 170, 520 205 C700 245, 860 258, 980 260"
+                    fill="none" stroke="rgba(37,99,235,0.80)" stroke-width="5" stroke-linecap="round"/>
+
+              <g>
+                <circle cx="520" cy="205" r="10" fill="rgba(245,158,11,0.18)" stroke="rgba(245,158,11,0.75)" stroke-width="3"/>
+                <text x="548" y="208" font-size="12" font-weight="950" fill="rgba(245,158,11,0.95)">常用折中点</text>
+              </g>
+
+              <text x="90" y="44" font-size="14" font-weight="950" fill="#0b1220">直觉：想要更小的 \(\varepsilon\)，通常需要更大的投影维度 m</text>
+              <text x="92" y="282" font-size="12" font-weight="700" fill="#475569">误差容忍（\(\varepsilon\)）→</text>
+              <text x="18" y="70" font-size="12" font-weight="700" fill="#475569">维度 m ↑</text>
+            </svg>
+          </div>
+        </figure>
+
+        <div class="callout accent">
+          <strong>区分：</strong> 随机投影不学习协方差结构（速度优先）；PCA 学结构（解释与压缩质量优先）。
+        </div>
+
+        <div class="backbar"><a href="#top">返回顶部</a></div>
+      </section>
+
+      <!-- 15 -->
+      <section id="s15">
+        <h3>15. 实战流程：数据泄露、标准化、缺失值、上线验证</h3>
+
+        <h4>15.1 推荐 pipeline</h4>
+        <ol>
+          <li>划分 train/valid/test（时间序列按时间切）。</li>
+          <li>仅在 train 上拟合：插补/标准化/降维。</li>
+          <li>valid/test 仅 transform。</li>
+          <li>用 valid 或 CV 选 \(k\) 与超参；test 只用于最终报告。</li>
+        </ol>
+
+        <div class="callout accent">
+          <strong>数据泄露的核心：</strong> 任何“用全量数据学到的统计量”（均值/方差/主方向/插补器等）都可能泄露。
+        </div>
+
+        <div class="backbar"><a href="#top">返回顶部</a></div>
+      </section>
+
+      <!-- 16 -->
+      <section id="s16">
+        <h3>16. 详细算例 A：二维数据的 PCA + LDA（逐步）</h3>
+
+        <h4>16.1 数据</h4>
+        <div class="math">
+          \[
+          \begin{aligned}
+          \text{A 类：}&\ (2,2),\ (3,3),\ (2,3),\ (3,2) \\
+          \text{B 类：}&\ (6,5),\ (7,6),\ (6,6),\ (7,5)
+          \end{aligned}
+          \]
+        </div>
+
+        <h4>16.2 PCA（无监督）</h4>
+        <details open>
+          <summary>展开计算：\(\bar x\)、\(S\)、\(\lambda\)、\(u_1\)、EVR、SSE</summary>
+          <div class="details-body">
+            <div class="math">
+              \[
+              \bar x=(4.5,4),\quad
+              S=
+              \begin{pmatrix}
+              \frac{34}{7} & \frac{24}{7}\\[4pt]
+              \frac{24}{7} & \frac{20}{7}
+              \end{pmatrix}.
+              \]
+            </div>
+            <div class="math secondary">
+              \[
+              \lambda_1=\frac{52}{7},\ \lambda_2=\frac{2}{7},\quad
+              u_1=\left(\frac45,\frac35\right)=(0.8,0.6).
+              \]
+            </div>
+            <div class="math accent">
+              \[
+              \mathrm{EVR}(1)=\frac{52}{54}=\frac{26}{27}\approx 0.963,\quad
+              \mathrm{SSE}=7\cdot\frac{2}{7}=2.
+              \]
+            </div>
+          </div>
+        </details>
+
+        <h4>16.3 LDA（有监督）</h4>
+        <details open>
+          <summary>展开计算：\(\mu_A,\mu_B\)、\(S_W\)、判别方向</summary>
+          <div class="details-body">
+            <div class="math">
+              \[
+              \mu_A=(2.5,2.5),\quad \mu_B=(6.5,5.5).
+              \]
+            </div>
+            <div class="math secondary">
+              \[
+              S_W=2I,\quad
+              w\propto S_W^{-1}(\mu_B-\mu_A)\propto (4,3)\Rightarrow \tilde w=(0.8,0.6).
+              \]
+            </div>
+          </div>
+        </details>
+
+        <div class="backbar"><a href="#top">返回顶部</a></div>
+      </section>
+
+      <!-- 17 -->
+      <section id="s17">
+        <h3>17. 详细算例 B：三维数据 PCA（逐项与重构）</h3>
+
+        <h4>17.1 数据（\(n=6, p=3\)）</h4>
+        <table>
+          <thead>
+            <tr><th>样本</th><th>\(x_1\)</th><th>\(x_2\)</th><th>\(x_3\)</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="td-strong">1</td><td>2</td><td>0</td><td>1</td></tr>
+            <tr><td class="td-strong">2</td><td>3</td><td>1</td><td>0</td></tr>
+            <tr><td class="td-strong">3</td><td>4</td><td>1</td><td>2</td></tr>
+            <tr><td class="td-strong">4</td><td>5</td><td>2</td><td>1</td></tr>
+            <tr><td class="td-strong">5</td><td>6</td><td>3</td><td>2</td></tr>
+            <tr><td class="td-strong">6</td><td>7</td><td>3</td><td>3</td></tr>
+          </tbody>
+        </table>
+
+        <h4>17.2 均值 \(\bar x\)</h4>
+        <div class="math">
+          \[
+            \bar x=(4.5,\ 1.6667,\ 1.5).
+          \]
+        </div>
+
+        <h4>17.3 协方差 \(S\)（示例数值）</h4>
+        <div class="math secondary">
+          \[
+            S=
+            \begin{pmatrix}
+              3.5 & 2.2 & 1.5\\
+              2.2 & 1.4667 & 0.8\\
+              1.5 & 0.8 & 1.1
+            \end{pmatrix}.
+          \]
+        </div>
+
+        <h4>17.4 特征值与 EVR（示例数值）</h4>
+        <div class="math">
+          \[
+            \hat\lambda =
+            (5.5524,\ 0.4913,\ 0.0230),
+            \quad
+            \mathrm{EVR}\approx (0.9152,\ 0.0810,\ 0.0038).
+          \]
+        </div>
+
+        <h4>17.5 第 1 主方向（载荷，示例）</h4>
+        <div class="math secondary">
+          \[
+            u_1\approx
+            \begin{pmatrix}
+              -0.7919\\
+              -0.4961\\
+              -0.3559
+            \end{pmatrix}.
+          \]
+        </div>
+
+        <h4>17.6 SSE（与特征值公式一致）</h4>
+        <div class="math accent">
+          \[
+            \mathrm{SSE}=(n-1)\sum_{j>1}\hat\lambda_j
+            =5\cdot(0.4913+0.0230)\approx 2.5713.
+          \]
+        </div>
+
+        <div class="backbar"><a href="#top">返回顶部</a></div>
+      </section>
+
+      <!-- 18 -->
+      <section id="s18">
+        <h3>18. 速查表：公式与选型清单</h3>
+
+        <h4>18.1 常用公式</h4>
+        <table>
+          <thead><tr><th>主题</th><th>关键公式</th></tr></thead>
+          <tbody>
+            <tr><td class="td-strong">线性降维</td><td>\(Z=U^\top(X-\mu)\)，\(\hat X=\mu+UU^\top(X-\mu)\)</td></tr>
+            <tr><td class="td-strong">投影方差</td><td>\(\mathrm{Var}(u^\top X)=u^\top\Sigma u\)</td></tr>
+            <tr><td class="td-strong">EVR</td><td>\(\mathrm{EVR}(k)=\frac{\sum_{j\le k}\hat\lambda_j}{\sum_{j\le p}\hat\lambda_j}\)</td></tr>
+            <tr><td class="td-strong">SSE</td><td>\(\mathrm{SSE}=(n-1)\sum_{j>k}\hat\lambda_j\)</td></tr>
+            <tr><td class="td-strong">PPCA</td><td>\(\Sigma=WW^\top+\sigma^2 I\)</td></tr>
+            <tr><td class="td-strong">LDA（二类）</td><td>\(w\propto S_W^{-1}(\mu_2-\mu_1)\)</td></tr>
+          </tbody>
+        </table>
+
+        <div class="backbar"><a href="#top">返回顶部</a></div>
+      </section>
+
+      <!-- 19 -->
+      <section id="s19">
+        <h3>19. 动画教学实验室：PCA 与 LDA 交互演示</h3>
+
+        <div class="grid">
+          <!-- PCA Lab -->
+          <div class="mini lab">
+            <h5>PCA：旋转投影轴，观察投影方差与重构误差</h5>
+            <canvas id="pcaCanvas" aria-label="PCA 动画画布"></canvas>
+
+            <div class="controls">
+              <label>角度 θ
+                <input id="pcaTheta" type="range" min="0" max="180" value="20" />
+                <span id="pcaThetaTxt">20°</span>
+              </label>
+
+              <label>数据集
+                <select id="pcaDataset">
+                  <option value="toy">Toy（两团云）</option>
+                  <option value="exampleA">示例A（两类点）</option>
+                </select>
+              </label>
+
+              <button class="btn primary" id="pcaPlay">播放</button>
+              <button class="btn secondary" id="pcaFindMax">跳到最大方差</button>
+              <button class="btn accent" id="pcaToggleProj">投影线</button>
+            </div>
+
+            <div class="metricrow">
+              <div class="metric"><strong>投影方差</strong> <span id="pcaVar">-</span></div>
+              <div class="metric"><strong>重构 MSE</strong> <span id="pcaMse">-</span></div>
+              <div class="metric"><strong>最优 θ</strong> <span id="pcaBest">-</span></div>
+            </div>
+
+            <div class="smallnote">
+              数学：\(u(\theta)=(\cos\theta,\sin\theta)\)，\(z=u^\top(x-\bar x)\)，\(\hat x=\bar x+uz\)。
+            </div>
+
+            <canvas id="pcaVarCanvas" aria-label="投影方差随角度变化曲线（小图）" style="height:180px;margin-top:10px;"></canvas>
+          </div>
+
+          <!-- LDA Lab -->
+          <div class="mini lab">
+            <h5>LDA：旋转判别轴，观察 Fisher 准则</h5>
+            <canvas id="ldaCanvas" aria-label="LDA 动画画布"></canvas>
+
+            <div class="controls">
+              <label>角度 θ
+                <input id="ldaTheta" type="range" min="0" max="180" value="20" />
+                <span id="ldaThetaTxt">20°</span>
+              </label>
+
+              <button class="btn primary" id="ldaPlay">播放</button>
+              <button class="btn secondary" id="ldaUseOpt">最优方向</button>
+              <button class="btn accent" id="ldaToggleProj">投影线</button>
+            </div>
+
+            <div class="metricrow">
+              <div class="metric"><strong>Fisher 值 J(w)</strong> <span id="ldaJ">-</span></div>
+              <div class="metric"><strong>类间间隔</strong> <span id="ldaSep">-</span></div>
+              <div class="metric"><strong>最优 θ</strong> <span id="ldaBest">-</span></div>
+            </div>
+
+            <div class="smallnote">
+              数学：\(J(w)=\frac{w^\top S_B w}{w^\top S_W w}\)，二分类最优 \(w\propto S_W^{-1}(\mu_2-\mu_1)\)。
+            </div>
+
+            <canvas id="ldaProjCanvas" aria-label="一维投影分布示意（小图）" style="height:180px;margin-top:10px;"></canvas>
+          </div>
+        </div>
+
+        <div class="backbar"><a href="#top">返回顶部</a></div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    /* ---------- UX: progress bar ---------- */
+    (function progressBar(){
+      const bar = document.getElementById('progress');
+      function onScroll(){
+        const doc = document.documentElement;
+        const max = Math.max(1, doc.scrollHeight - doc.clientHeight);
+        const p = (doc.scrollTop / max) * 100;
+        bar.style.width = p.toFixed(2) + '%';
+      }
+      window.addEventListener('scroll', onScroll, { passive:true });
+      onScroll();
+    })();
+
+    /* ---------- Duplicate TOC to mobile ---------- */
+    (function syncTOC(){
+      const toc = document.getElementById('toc');
+      const mobile = document.getElementById('toc-mobile');
+      if(!toc || !mobile) return;
+      mobile.innerHTML = toc.innerHTML;
+    })();
+
+    /* ---------- ScrollSpy + SmoothScroll ---------- */
+    (function scrollSpy(){
+      const links = Array.from(document.querySelectorAll('.toc a'));
+      const sections = links.map(a => document.querySelector(a.getAttribute('href'))).filter(Boolean);
+
+      const setActive = (id) => {
+        links.forEach(a => a.classList.toggle('active', a.getAttribute('href') === '#' + id));
+      };
+
+      const observer = new IntersectionObserver((entries) => {
+        const visible = entries.filter(e => e.isIntersecting).sort((a,b)=>b.intersectionRatio-a.intersectionRatio);
+        if(visible.length) setActive(visible[0].target.id);
+      }, {
+        threshold: [0.12, 0.18, 0.25, 0.33, 0.5, 0.66],
+        rootMargin: "-10% 0px -70% 0px"
+      });
+
+      sections.forEach(s => observer.observe(s));
+
+      links.forEach(a=>{
+        a.addEventListener('click', (e)=>{
+          const href = a.getAttribute('href');
+          if(!href || !href.startsWith('#')) return;
+          const target = document.querySelector(href);
+          if(!target) return;
+          e.preventDefault();
+          target.scrollIntoView({ behavior:'smooth', block:'start' });
+          history.replaceState(null, '', href);
+        });
+      });
+    })();
+
+    /* ---------- Sidebar: search filter ---------- */
+    (function tocSearch(){
+      const input = document.getElementById('tocSearch');
+      if(!input) return;
+
+      function filter(){
+        const q = input.value.trim().toLowerCase();
+        const groups = document.querySelectorAll('#toc .group');
+        groups.forEach(g=>{
+          let any = false;
+          const links = g.querySelectorAll('a');
+          links.forEach(a=>{
+            const ok = !q || a.textContent.toLowerCase().includes(q);
+            a.style.display = ok ? '' : 'none';
+            if(ok) any = true;
+          });
+          g.style.display = any ? '' : 'none';
+        });
+      }
+      input.addEventListener('input', filter);
+      filter();
+    })();
+
+    /* ---------- Theme toggle ---------- */
+    (function theme(){
+      const btn = document.getElementById('toggleTheme');
+      if(!btn) return;
+      const key = 'dimred_theme';
+      const root = document.documentElement;
+
+      function apply(v){
+        if(v === 'dark') root.setAttribute('data-theme','dark');
+        else root.removeAttribute('data-theme');
+      }
+
+      const saved = localStorage.getItem(key);
+      if(saved) apply(saved);
+
+      btn.addEventListener('click', ()=>{
+        const isDark = root.getAttribute('data-theme') === 'dark';
+        const next = isDark ? 'light' : 'dark';
+        localStorage.setItem(key, next);
+        apply(next);
+      });
+    })();
+
+    /* ---------- Expand / collapse all details ---------- */
+    (function detailsAll(){
+      const exp = document.getElementById('expandAll');
+      const col = document.getElementById('collapseAll');
+      const all = () => Array.from(document.querySelectorAll('details'));
+
+      if(exp) exp.addEventListener('click', ()=> all().forEach(d => d.open = true));
+      if(col) col.addEventListener('click', ()=> all().forEach(d => d.open = false));
+    })();
+
+    /* ---------- Hero quick jumps ---------- */
+    (function quickJumps(){
+      const go = (id)=>{ const el=document.getElementById(id); if(el) el.scrollIntoView({behavior:'smooth', block:'start'}); };
+      const a = document.getElementById('jumpMindmap');
+      const b = document.getElementById('jumpLab');
+      const c = document.getElementById('jumpExample');
+      if(a) a.addEventListener('click', ()=>go('s0'));
+      if(b) b.addEventListener('click', ()=>go('s19'));
+      if(c) c.addEventListener('click', ()=>go('s16'));
+    })();
+
+    /* ===== Animation Labs (PCA / LDA) ===== */
+    (function dimReductionLabs(){
+      const $ = (id)=>document.getElementById(id);
+      function clamp(x,a,b){ return Math.max(a, Math.min(b,x)); }
+      function rad(deg){ return (deg*Math.PI)/180; }
+      function deg(rad){ return (rad*180)/Math.PI; }
+
+      function resizeCanvas(canvas, cssHeight){
+        const dpr = window.devicePixelRatio || 1;
+        const rect = canvas.getBoundingClientRect();
+        const w = Math.max(280, Math.floor(rect.width));
+        const h = cssHeight || Math.max(220, Math.floor(rect.height));
+        canvas.width = Math.floor(w * dpr);
+        canvas.height = Math.floor(h * dpr);
+        const ctx = canvas.getContext('2d');
+        ctx.setTransform(dpr,0,0,dpr,0,0);
+        return { w, h, dpr };
+      }
+
+      function mean2(points){
+        let sx=0, sy=0;
+        for(const p of points){ sx+=p.x; sy+=p.y; }
+        return { x: sx/points.length, y: sy/points.length };
+      }
+      function center(points){
+        const m = mean2(points);
+        return points.map(p=>({ ...p, x:p.x-m.x, y:p.y-m.y }));
+      }
+      function dot(a,b){ return a.x*b.x + a.y*b.y; }
+      function norm2(a){ return a.x*a.x + a.y*a.y; }
+
+      function inv2x2(M){
+        const det = M.a*M.d - M.b*M.c;
+        if(Math.abs(det) < 1e-10) return null;
+        return { a: M.d/det, b: -M.b/det, c: -M.c/det, d: M.a/det };
+      }
+
+      function fitToCanvas(points, w, h, pad=0.18){
+        let minX=Infinity, maxX=-Infinity, minY=Infinity, maxY=-Infinity;
+        for(const p of points){
+          minX=Math.min(minX,p.x); maxX=Math.max(maxX,p.x);
+          minY=Math.min(minY,p.y); maxY=Math.max(maxY,p.y);
+        }
+        const dx = (maxX-minX)||1;
+        const dy = (maxY-minY)||1;
+        const scale = Math.min((w*(1-pad*2))/dx, (h*(1-pad*2))/dy);
+        const cx = (minX+maxX)/2, cy=(minY+maxY)/2;
+        return {
+          toCanvas(p){ return { x: w/2 + (p.x-cx)*scale, y: h/2 - (p.y-cy)*scale }; },
+          scale,
+          center:{x:cx,y:cy}
+        };
+      }
+
+      function drawGrid(ctx, w, h){
+        ctx.save();
+        ctx.clearRect(0,0,w,h);
+        ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--panel').trim() || '#fff';
+        ctx.fillRect(0,0,w,h);
+        ctx.strokeStyle = 'rgba(2,6,23,0.06)';
+        ctx.lineWidth = 1;
+        const step = 40;
+        for(let x=0; x<=w; x+=step){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,h); ctx.stroke(); }
+        for(let y=0; y<=h; y+=step){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke(); }
+        ctx.restore();
+      }
+
+      function drawArrow(ctx, x0,y0, x1,y1){
+        const ang = Math.atan2(y1-y0, x1-x0);
+        const len = 10;
+        ctx.beginPath(); ctx.moveTo(x0,y0); ctx.lineTo(x1,y1); ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(x1,y1);
+        ctx.lineTo(x1-len*Math.cos(ang-Math.PI/7), y1-len*Math.sin(ang-Math.PI/7));
+        ctx.lineTo(x1-len*Math.cos(ang+Math.PI/7), y1-len*Math.sin(ang+Math.PI/7));
+        ctx.closePath(); ctx.fill();
+      }
+
+      /* ---------- PCA LAB ---------- */
+      const pcaCanvas = $('pcaCanvas');
+      const pcaVarCanvas = $('pcaVarCanvas');
+      if(!pcaCanvas || !pcaVarCanvas) return;
+
+      const pcaTheta = $('pcaTheta');
+      const pcaThetaTxt = $('pcaThetaTxt');
+      const pcaDataset = $('pcaDataset');
+      const pcaPlay = $('pcaPlay');
+      const pcaFindMax = $('pcaFindMax');
+      const pcaToggleProj = $('pcaToggleProj');
+      const pcaVar = $('pcaVar');
+      const pcaMse = $('pcaMse');
+      const pcaBest = $('pcaBest');
+
+      let pcaShowProj = true;
+      let pcaPlaying = false;
+      let pcaState = { thetaDeg: 20, points: [], centered: [], bestThetaDeg: 0 };
+
+      function pcaToyData(){
+        const pts = [];
+        function randn(){
+          let u=0,v=0; while(u===0)u=Math.random(); while(v===0)v=Math.random();
+          return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
+        }
+        for(let i=0;i<40;i++){
+          const t = randn(), s = randn()*0.6;
+          pts.push({ x:  2.4 + 1.2*t + 0.3*s, y:  1.6 + 0.8*t - 0.2*s, cls:0 });
+        }
+        for(let i=0;i<40;i++){
+          const t = randn(), s = randn()*0.6;
+          pts.push({ x: -2.3 + 1.2*t + 0.3*s, y: -1.3 + 0.8*t - 0.2*s, cls:1 });
+        }
+        return pts;
+      }
+      function pcaExampleA(){
+        const A = [{x:2,y:2},{x:3,y:3},{x:2,y:3},{x:3,y:2}].map(p=>({...p,cls:0}));
+        const B = [{x:6,y:5},{x:7,y:6},{x:6,y:6},{x:7,y:5}].map(p=>({...p,cls:1}));
+        return A.concat(B);
+      }
+
+      function pcaLoadDataset(){
+        const raw = (pcaDataset.value === 'exampleA') ? pcaExampleA() : pcaToyData();
+        pcaState.points = raw;
+        pcaState.centered = center(raw);
+
+        let bestV = -Infinity, bestT = 0;
+        for(let t=0;t<=180;t++){
+          const u = { x: Math.cos(rad(t)), y: Math.sin(rad(t)) };
+          const zs = pcaState.centered.map(p=>dot(p,u));
+          const m = zs.reduce((a,b)=>a+b,0)/zs.length;
+          const v = zs.reduce((a,z)=>a+(z-m)*(z-m),0)/zs.length;
+          if(v>bestV){ bestV=v; bestT=t; }
+        }
+        pcaState.bestThetaDeg = bestT;
+        pcaBest.textContent = `${bestT.toFixed(0)}°`;
+        drawPcaVarCurve();
+      }
+
+      function pcaMetrics(thetaDeg){
+        const u = { x: Math.cos(rad(thetaDeg)), y: Math.sin(rad(thetaDeg)) };
+        const zs = pcaState.centered.map(p=>dot(p,u));
+        const m = zs.reduce((a,b)=>a+b,0)/zs.length;
+        const v = zs.reduce((a,z)=>a+(z-m)*(z-m),0)/zs.length;
+
+        let mse = 0;
+        for(let i=0;i<pcaState.centered.length;i++){
+          const p = pcaState.centered[i];
+          const z = zs[i];
+          const phat = { x: u.x*z, y: u.y*z };
+          mse += norm2({ x: p.x-phat.x, y: p.y-phat.y });
+        }
+        mse /= pcaState.centered.length;
+
+        return { u, varz:v, mse };
+      }
+
+      function drawPcaVarCurve(){
+        const { w, h } = resizeCanvas(pcaVarCanvas, 180);
+        const ctx = pcaVarCanvas.getContext('2d');
+        ctx.clearRect(0,0,w,h);
+        ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--panel').trim() || '#fff';
+        ctx.fillRect(0,0,w,h);
+
+        const vals = [];
+        let vmax = 0;
+        for(let t=0;t<=180;t++){
+          const { varz } = pcaMetrics(t);
+          vals.push(varz);
+          vmax = Math.max(vmax, varz);
+        }
+
+        ctx.save();
+        ctx.strokeStyle = 'rgba(2,6,23,0.12)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(30, 10);
+        ctx.lineTo(30, h-25);
+        ctx.lineTo(w-10, h-25);
+        ctx.stroke();
+        ctx.restore();
+
+        ctx.save();
+        ctx.strokeStyle = 'rgba(37,99,235,0.75)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        for(let t=0;t<=180;t++){
+          const x = 30 + (t/180)*(w-45);
+          const y = (h-25) - (vals[t]/(vmax||1))*(h-40);
+          if(t===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+        }
+        ctx.stroke();
+        ctx.restore();
+
+        const bestT = pcaState.bestThetaDeg;
+        const bx = 30 + (bestT/180)*(w-45);
+        ctx.save();
+        ctx.strokeStyle = 'rgba(245,158,11,0.85)';
+        ctx.setLineDash([6,6]);
+        ctx.beginPath();
+        ctx.moveTo(bx, 10);
+        ctx.lineTo(bx, h-25);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      function drawPcaVarMarker(thetaDeg){
+        const { w, h } = resizeCanvas(pcaVarCanvas, 180);
+        const ctx = pcaVarCanvas.getContext('2d');
+        drawPcaVarCurve();
+        const x = 30 + (thetaDeg/180)*(w-45);
+        ctx.save();
+        ctx.fillStyle = 'rgba(16,185,129,0.95)';
+        ctx.beginPath();
+        ctx.arc(x, 16, 5, 0, Math.PI*2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      function drawPca(thetaDeg){
+        const { w, h } = resizeCanvas(pcaCanvas, 320);
+        const ctx = pcaCanvas.getContext('2d');
+        drawGrid(ctx, w, h);
+
+        const fit = fitToCanvas(pcaState.centered.concat([{x:0,y:0,cls:9}]), w, h, 0.18);
+        const origin = fit.toCanvas({x:0,y:0});
+
+        const { u, varz, mse } = pcaMetrics(thetaDeg);
+        pcaVar.textContent = varz.toFixed(4);
+        pcaMse.textContent = mse.toFixed(4);
+        pcaThetaTxt.textContent = `${thetaDeg.toFixed(0)}°`;
+
+        ctx.save();
+        ctx.strokeStyle = 'rgba(37,99,235,0.70)';
+        ctx.fillStyle = 'rgba(37,99,235,0.70)';
+        ctx.lineWidth = 2;
+
+        const L = Math.max(w,h)*0.55;
+        const p1 = fit.toCanvas({ x: -u.x*L/fit.scale, y: -u.y*L/fit.scale });
+        const p2 = fit.toCanvas({ x:  u.x*L/fit.scale, y:  u.y*L/fit.scale });
+        drawArrow(ctx, p1.x,p1.y, p2.x,p2.y);
+        ctx.restore();
+
+        for(const p of pcaState.centered){
+          const pc = fit.toCanvas(p);
+          const z = dot(p,u);
+          const proj = { x: u.x*z, y: u.y*z };
+          const qc = fit.toCanvas(proj);
+
+          if(pcaShowProj){
+            ctx.save();
+            ctx.strokeStyle = 'rgba(2,6,23,0.20)';
+            ctx.setLineDash([6,6]);
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(pc.x, pc.y);
+            ctx.lineTo(qc.x, qc.y);
+            ctx.stroke();
+            ctx.restore();
+
+            ctx.save();
+            ctx.fillStyle = 'rgba(245,158,11,0.85)';
+            ctx.beginPath();
+            ctx.arc(qc.x, qc.y, 3.5, 0, Math.PI*2);
+            ctx.fill();
+            ctx.restore();
+          }
+
+          ctx.save();
+          ctx.fillStyle = (p.cls===1) ? 'rgba(16,185,129,0.85)' : 'rgba(37,99,235,0.85)';
+          ctx.beginPath();
+          ctx.arc(pc.x, pc.y, 4.2, 0, Math.PI*2);
+          ctx.fill();
+          ctx.restore();
+        }
+
+        ctx.save();
+        ctx.fillStyle = 'rgba(2,6,23,0.65)';
+        ctx.beginPath();
+        ctx.arc(origin.x, origin.y, 3.5, 0, Math.PI*2);
+        ctx.fill();
+        ctx.restore();
+
+        drawPcaVarMarker(thetaDeg);
+      }
+
+      let pcaLastTs = null;
+      function pcaTick(ts){
+        if(!pcaPlaying) return;
+        if(pcaLastTs === null) pcaLastTs = ts;
+        const dt = Math.min(40, ts - pcaLastTs);
+        pcaLastTs = ts;
+
+        let t = Number(pcaTheta.value);
+        t = (t + dt*0.03) % 180;
+        pcaTheta.value = String(t);
+        pcaState.thetaDeg = t;
+        drawPca(t);
+        requestAnimationFrame(pcaTick);
+      }
+
+      pcaTheta.addEventListener('input', ()=>{
+        const t = Number(pcaTheta.value);
+        pcaState.thetaDeg = t;
+        drawPca(t);
+      });
+      pcaDataset.addEventListener('change', ()=>{
+        pcaLoadDataset();
+        drawPca(Number(pcaTheta.value));
+      });
+      pcaPlay.addEventListener('click', ()=>{
+        pcaPlaying = !pcaPlaying;
+        pcaPlay.textContent = pcaPlaying ? '暂停' : '播放';
+        pcaLastTs = null;
+        if(pcaPlaying) requestAnimationFrame(pcaTick);
+      });
+      pcaFindMax.addEventListener('click', ()=>{
+        const t = pcaState.bestThetaDeg;
+        pcaTheta.value = String(t);
+        pcaState.thetaDeg = t;
+        drawPca(t);
+      });
+      pcaToggleProj.addEventListener('click', ()=>{
+        pcaShowProj = !pcaShowProj;
+        drawPca(Number(pcaTheta.value));
+      });
+
+      /* ---------- LDA LAB ---------- */
+      const ldaCanvas = $('ldaCanvas');
+      const ldaProjCanvas = $('ldaProjCanvas');
+      const ldaTheta = $('ldaTheta');
+      const ldaThetaTxt = $('ldaThetaTxt');
+      const ldaPlay = $('ldaPlay');
+      const ldaUseOpt = $('ldaUseOpt');
+      const ldaToggleProj = $('ldaToggleProj');
+      const ldaJ = $('ldaJ');
+      const ldaSep = $('ldaSep');
+      const ldaBest = $('ldaBest');
+
+      let ldaShowProj = true;
+      let ldaPlaying = false;
+      let ldaState = { thetaDeg: 20, points: [], optThetaDeg: 0, mu0:null, mu1:null, SW:null, SB:null };
+
+      function ldaData(){
+        const A = [{x:2,y:2},{x:3,y:3},{x:2,y:3},{x:3,y:2}].map(p=>({...p,cls:0}));
+        const B = [{x:6,y:5},{x:7,y:6},{x:6,y:6},{x:7,y:5}].map(p=>({...p,cls:1}));
+        return A.concat(B);
+      }
+
+      function ldaCompute(){
+        const pts = ldaState.points;
+        const c0 = pts.filter(p=>p.cls===0);
+        const c1 = pts.filter(p=>p.cls===1);
+        const mu0 = mean2(c0), mu1 = mean2(c1);
+        ldaState.mu0 = mu0; ldaState.mu1 = mu1;
+
+        let SW = { a:0,b:0,c:0,d:0 };
+        function addOuter(M, v){
+          M.a += v.x*v.x; M.b += v.x*v.y;
+          M.c += v.y*v.x; M.d += v.y*v.y;
+        }
+        for(const p of c0){ addOuter(SW, {x:p.x-mu0.x, y:p.y-mu0.y}); }
+        for(const p of c1){ addOuter(SW, {x:p.x-mu1.x, y:p.y-mu1.y}); }
+        ldaState.SW = SW;
+
+        const dm = { x: mu1.x-mu0.x, y: mu1.y-mu0.y };
+        const SB = { a: dm.x*dm.x, b: dm.x*dm.y, c: dm.y*dm.x, d: dm.y*dm.y };
+        ldaState.SB = SB;
+
+        const inv = inv2x2(SW);
+        if(inv){
+          const w = { x: inv.a*dm.x + inv.b*dm.y, y: inv.c*dm.x + inv.d*dm.y };
+          const th = (deg(Math.atan2(w.y, w.x)) + 360) % 180;
+          ldaState.optThetaDeg = th;
+          ldaBest.textContent = `${th.toFixed(0)}°`;
+        }else{
+          ldaState.optThetaDeg = 0;
+          ldaBest.textContent = `不可逆`;
+        }
+      }
+
+      function ldaCriterion(thetaDeg){
+        const wv = { x: Math.cos(rad(thetaDeg)), y: Math.sin(rad(thetaDeg)) };
+        const SB = ldaState.SB, SW = ldaState.SW;
+        const wSBw = (wv.x*(SB.a*wv.x + SB.b*wv.y) + wv.y*(SB.c*wv.x + SB.d*wv.y));
+        const wSWw = (wv.x*(SW.a*wv.x + SW.b*wv.y) + wv.y*(SW.c*wv.x + SW.d*wv.y));
+        const J = wSBw / Math.max(1e-12, wSWw);
+
+        const dm = { x: ldaState.mu1.x-ldaState.mu0.x, y: ldaState.mu1.y-ldaState.mu0.y };
+        const sep = Math.abs(dot(dm, wv));
+        return { w: wv, J, sep };
+      }
+
+      function drawLdaProj(thetaDeg){
+        const { w, h } = resizeCanvas(ldaProjCanvas, 180);
+        const ctx = ldaProjCanvas.getContext('2d');
+        ctx.clearRect(0,0,w,h);
+        ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--panel').trim() || '#fff';
+        ctx.fillRect(0,0,w,h);
+
+        const { w:wv } = ldaCriterion(thetaDeg);
+        const pts = ldaState.points;
+        const mAll = mean2(pts);
+
+        const z0 = [], z1 = [];
+        for(const p of pts){
+          const v = { x: p.x-mAll.x, y: p.y-mAll.y };
+          const z = dot(v, wv);
+          (p.cls===1 ? z1 : z0).push(z);
+        }
+
+        const all = z0.concat(z1);
+        let minZ = Math.min(...all), maxZ = Math.max(...all);
+        const pad = (maxZ-minZ)*0.15 || 1;
+        minZ -= pad; maxZ += pad;
+
+        const toX = (z)=> 30 + ( (z-minZ)/(maxZ-minZ) )*(w-45);
+        const midY = Math.floor(h/2);
+
+        ctx.save();
+        ctx.strokeStyle = 'rgba(2,6,23,0.12)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(30, midY);
+        ctx.lineTo(w-10, midY);
+        ctx.stroke();
+        ctx.restore();
+
+        function plot(zs, color, y){
+          ctx.save();
+          ctx.fillStyle = color;
+          for(const z of zs){
+            ctx.beginPath();
+            ctx.arc(toX(z), y, 4.2, 0, Math.PI*2);
+            ctx.fill();
+          }
+          ctx.restore();
+        }
+        plot(z0, 'rgba(37,99,235,0.85)', midY-26);
+        plot(z1, 'rgba(16,185,129,0.85)', midY+26);
+
+        const mu0 = mean2(pts.filter(p=>p.cls===0));
+        const mu1 = mean2(pts.filter(p=>p.cls===1));
+        const dm0 = { x: mu0.x-mAll.x, y: mu0.y-mAll.y };
+        const dm1 = { x: mu1.x-mAll.x, y: mu1.y-mAll.y };
+        const mz0 = dot(dm0, wv);
+        const mz1 = dot(dm1, wv);
+
+        ctx.save();
+        ctx.strokeStyle = 'rgba(245,158,11,0.85)';
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(toX(mz0), midY-38); ctx.lineTo(toX(mz0), midY+38); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(toX(mz1), midY-38); ctx.lineTo(toX(mz1), midY+38); ctx.stroke();
+        ctx.restore();
+      }
+
+      function drawLda(thetaDeg){
+        const { w, h } = resizeCanvas(ldaCanvas, 320);
+        const ctx = ldaCanvas.getContext('2d');
+        drawGrid(ctx, w, h);
+
+        ldaThetaTxt.textContent = `${thetaDeg.toFixed(0)}°`;
+
+        const { w:wv, J, sep } = ldaCriterion(thetaDeg);
+        ldaJ.textContent = J.toFixed(4);
+        ldaSep.textContent = sep.toFixed(4);
+
+        const pts = ldaState.points;
+        const fit = fitToCanvas(pts.concat([{x:ldaState.mu0.x,y:ldaState.mu0.y,cls:9},{x:ldaState.mu1.x,y:ldaState.mu1.y,cls:9}]), w, h, 0.18);
+
+        ctx.save();
+        ctx.strokeStyle = 'rgba(16,185,129,0.70)';
+        ctx.fillStyle = 'rgba(16,185,129,0.70)';
+        ctx.lineWidth = 2;
+        const L = Math.max(w,h)*0.55;
+        const p1 = fit.toCanvas({ x: -wv.x*L/fit.scale + fit.center.x, y: -wv.y*L/fit.scale + fit.center.y });
+        const p2 = fit.toCanvas({ x:  wv.x*L/fit.scale + fit.center.x, y:  wv.y*L/fit.scale + fit.center.y });
+        drawArrow(ctx, p1.x,p1.y, p2.x,p2.y);
+        ctx.restore();
+
+        const mu0c = fit.toCanvas(ldaState.mu0);
+        const mu1c = fit.toCanvas(ldaState.mu1);
+        ctx.save();
+        ctx.fillStyle = 'rgba(37,99,235,0.95)';
+        ctx.beginPath(); ctx.arc(mu0c.x, mu0c.y, 6.2, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = 'rgba(16,185,129,0.95)';
+        ctx.beginPath(); ctx.arc(mu1c.x, mu1c.y, 6.2, 0, Math.PI*2); ctx.fill();
+        ctx.restore();
+
+        const mAll = mean2(pts);
+        for(const p of pts){
+          const pc = fit.toCanvas(p);
+
+          if(ldaShowProj){
+            const v = { x: p.x-mAll.x, y: p.y-mAll.y };
+            const z = dot(v, wv);
+            const proj = { x: mAll.x + wv.x*z, y: mAll.y + wv.y*z };
+            const qc = fit.toCanvas(proj);
+
+            ctx.save();
+            ctx.strokeStyle = 'rgba(2,6,23,0.20)';
+            ctx.setLineDash([6,6]);
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(pc.x, pc.y);
+            ctx.lineTo(qc.x, qc.y);
+            ctx.stroke();
+            ctx.restore();
+
+            ctx.save();
+            ctx.fillStyle = 'rgba(245,158,11,0.85)';
+            ctx.beginPath();
+            ctx.arc(qc.x, qc.y, 3.5, 0, Math.PI*2);
+            ctx.fill();
+            ctx.restore();
+          }
+
+          ctx.save();
+          ctx.fillStyle = (p.cls===1) ? 'rgba(16,185,129,0.85)' : 'rgba(37,99,235,0.85)';
+          ctx.beginPath();
+          ctx.arc(pc.x, pc.y, 4.2, 0, Math.PI*2);
+          ctx.fill();
+          ctx.restore();
+        }
+
+        drawLdaProj(thetaDeg);
+      }
+
+      let ldaLastTs = null;
+      function ldaTick(ts){
+        if(!ldaPlaying) return;
+        if(ldaLastTs === null) ldaLastTs = ts;
+        const dt = Math.min(40, ts - ldaLastTs);
+        ldaLastTs = ts;
+
+        let t = Number(ldaTheta.value);
+        t = (t + dt*0.03) % 180;
+        ldaTheta.value = String(t);
+        ldaState.thetaDeg = t;
+        drawLda(t);
+        requestAnimationFrame(ldaTick);
+      }
+
+      ldaTheta.addEventListener('input', ()=>{
+        const t = Number(ldaTheta.value);
+        ldaState.thetaDeg = t;
+        drawLda(t);
+      });
+      ldaPlay.addEventListener('click', ()=>{
+        ldaPlaying = !ldaPlaying;
+        ldaPlay.textContent = ldaPlaying ? '暂停' : '播放';
+        ldaLastTs = null;
+        if(ldaPlaying) requestAnimationFrame(ldaTick);
+      });
+      ldaUseOpt.addEventListener('click', ()=>{
+        const t = ldaState.optThetaDeg;
+        ldaTheta.value = String(t);
+        ldaState.thetaDeg = t;
+        drawLda(t);
+      });
+      ldaToggleProj.addEventListener('click', ()=>{
+        ldaShowProj = !ldaShowProj;
+        drawLda(Number(ldaTheta.value));
+      });
+
+      function init(){
+        pcaLoadDataset();
+        drawPca(Number(pcaTheta.value));
+
+        ldaState.points = ldaData();
+        ldaCompute();
+        drawLda(Number(ldaTheta.value));
+      }
+      init();
+
+      window.addEventListener('resize', ()=>{
+        drawPca(Number(pcaTheta.value));
+        drawLda(Number(ldaTheta.value));
+      });
+    })();
+  </script>
+</body>
+</html>
